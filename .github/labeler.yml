@@ -1,0 +1,59 @@
+# Release lanes
+"release-lane:operator":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "internal/**"
+          - "cmd/**"
+          - "ui/**"
+          - "Dockerfile"
+          - "Dockerfiles/**"
+          - "go.mod"
+          - "go.sum"
+
+"release-lane:crd":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "api/**"
+          - "config/crd/**"
+
+# Areas
+"area:operator":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "internal/**"
+          - "cmd/session-controller/**"
+
+"area:server":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "internal/server/**"
+
+"area:ui":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "ui/**"
+
+"area:crd":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "api/**"
+          - "config/crd/**"
+
+"area:config":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "config/default/**"
+          - "config/manager/**"
+          - "config/manifests/**"
+
+"area:tests":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "test/**"
+          - "internal/**/**_test.go"
+
+"area:docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.md"
+          - "docs/**"

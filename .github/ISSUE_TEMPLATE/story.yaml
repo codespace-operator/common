@@ -1,0 +1,32 @@
+name: Story
+description: Implementable, testable slice
+labels: [story]
+body:
+  - type: textarea
+    id: summary
+    attributes: { label: Summary, placeholder: One or two sentences }
+    validations: { required: true }
+  - type: textarea
+    id: ac
+    attributes:
+      label: Acceptance Criteria
+      value: |
+        - [ ] When X, then Y
+        - [ ] Errors reported as Z
+    validations: { required: true }
+  - type: textarea
+    id: impl
+    attributes:
+      label: Implementation Notes
+      value: |
+        - Touch points:
+        - Config/flags:
+        - Data model changes:
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test Plan
+      value: |
+        - Unit:
+        - E2E:
+        - Security/Negative:

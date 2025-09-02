@@ -1,0 +1,5 @@
+{
+  "*.go": "gofmt -w",
+  "*.{ts,tsx,js,css,html,json,md}": "npx prettier -w",
+  "*.{md,json,yml,yaml}": "npx prettier -w"
+}

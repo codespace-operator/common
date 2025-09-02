@@ -1,0 +1,16 @@
+name: Epic
+description: Track a major goal and its stories
+labels: [epic]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      { label: Goal, placeholder: What outcome does this epic deliver? }
+    validations: { required: true }
+  - type: textarea
+    id: scope
+    attributes:
+      { label: Scope, placeholder: Boundaries, assumptions, out-of-scope }
+  - type: textarea
+    id: stories
+    attributes: { label: Stories, placeholder: List child stories or links }

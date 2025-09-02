@@ -1,0 +1,49 @@
+name: Release Package
+on:
+  push:
+    branches: [main]
+    paths:
+      # - .github/release-config/release.common.cjs
+      - pkg/**
+      - cmd/**
+      - go.mod
+      - go.sum
+      - "!CHANGELOG.md"
+
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    if: >-
+      github.event.head_commit != null &&
+      !startsWith(github.event.head_commit.message, 'chore(release)') &&
+      !contains(github.event.head_commit.message, '[skip ci]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Fetch tags
+        run: git fetch --tags --force --prune
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install release deps
+        run: |
+          npm i -D semantic-release @semantic-release/changelog @semantic-release/exec @semantic-release/git @semantic-release/github
+
+      - name: Release Operator
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release -e ./.github/release-config/release.operator.cjs
