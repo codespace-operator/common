@@ -5,38 +5,38 @@ import (
 	"log/slog"
 	"net/http"
 
-	auth "github.com/codespace-operator/common/auth/pkg/auth"
 	authv1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Middleware provides HTTP middleware functions
 type Middleware struct {
-	rbac   RBACInterface
-	logger *slog.Logger
+	rbac    RBACInterface
+	extract PrincipalExtractor
+	logger  *slog.Logger
 }
 
 // NewMiddleware creates RBAC middleware
-func NewMiddleware(rbac RBACInterface, logger *slog.Logger) *Middleware {
+func NewMiddleware(rbac RBACInterface, extract PrincipalExtractor, logger *slog.Logger) *Middleware {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Middleware{rbac: rbac, logger: logger}
+	return &Middleware{rbac: rbac, extract: extract, logger: logger}
 }
 
 // MustCan checks authorization and writes 403 if denied
-func (m *Middleware) MustCan(w http.ResponseWriter, r *http.Request, resource, action, domain string) (*auth.TokenClaims, bool) {
-	cl := auth.FromContext(r)
-	if cl == nil {
+func (m *Middleware) MustCan(w http.ResponseWriter, r *http.Request, resource, action, domain string) (*Principal, bool) {
+	pr, err := m.extract(r)
+	if err != nil || pr == nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return nil, false
 	}
 
-	ok, err := m.rbac.Enforce(cl.Sub, cl.Roles, resource, action, domain)
+	ok, err := m.rbac.Enforce(pr.Subject, pr.Roles, resource, action, domain)
 	if err != nil {
 		m.logger.Error("RBAC enforcement error",
 			"error", err,
-			"subject", cl.Sub,
+			"subject", pr.Subject,
 			"resource", resource,
 			"action", action,
 			"domain", domain)
@@ -46,8 +46,8 @@ func (m *Middleware) MustCan(w http.ResponseWriter, r *http.Request, resource, a
 
 	if !ok {
 		m.logger.Debug("RBAC access denied",
-			"subject", cl.Sub,
-			"roles", cl.Roles,
+			"subject", pr.Subject,
+			"roles", pr.Roles,
 			"resource", resource,
 			"action", action,
 			"domain", domain)
@@ -55,13 +55,13 @@ func (m *Middleware) MustCan(w http.ResponseWriter, r *http.Request, resource, a
 		return nil, false
 	}
 
-	return cl, true
+	return pr, true
 }
 
 // CanAny checks if user has any of the specified permissions
-func (m *Middleware) CanAny(cl *auth.TokenClaims, resource string, actions []string, domain string) bool {
+func (m *Middleware) CanAny(pr *Principal, resource string, actions []string, domain string) bool {
 	for _, action := range actions {
-		if ok, err := m.rbac.Enforce(cl.Sub, cl.Roles, resource, action, domain); err == nil && ok {
+		if ok, err := m.rbac.Enforce(pr.Subject, pr.Roles, resource, action, domain); err == nil && ok {
 			return true
 		}
 	}
@@ -69,19 +69,19 @@ func (m *Middleware) CanAny(cl *auth.TokenClaims, resource string, actions []str
 }
 
 // MustCanAny checks if user has any of the specified permissions, returns 403 if not
-func (m *Middleware) MustCanAny(w http.ResponseWriter, r *http.Request, resource string, actions []string, domain string) (*auth.TokenClaims, bool) {
-	cl := auth.FromContext(r)
-	if cl == nil {
+func (m *Middleware) MustCanAny(w http.ResponseWriter, r *http.Request, resource string, actions []string, domain string) (*Principal, bool) {
+	pr, err := m.extract(r)
+	if err != nil || pr == nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return nil, false
 	}
 
-	if !m.CanAny(cl, resource, actions, domain) {
+	if !m.CanAny(pr, resource, actions, domain) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return nil, false
 	}
 
-	return cl, true
+	return pr, true
 }
 
 // K8sCan checks if the server's service account can perform a Kubernetes operation
