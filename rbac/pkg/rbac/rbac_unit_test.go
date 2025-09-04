@@ -141,6 +141,10 @@ func TestRBAC_Reload_NoSleep(t *testing.T) {
 	}
 }
 
+// TestRBAC_GetAllowedDomains verifies that the RBAC system correctly returns all allowed domains
+// for a user with the "viewer" role when performing a "get" action on the "session" resource.
+// It ensures that the user is permitted to access the "session" resource in all specified domains
+// according to the test policy, and checks that the returned domains match the expected list.
 func TestRBAC_GetAllowedDomains(t *testing.T) {
 	r := newRBAC(t)
 
