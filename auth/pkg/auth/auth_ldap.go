@@ -28,7 +28,7 @@ type LDAPConfig struct {
 	StartTLS           bool   // if true and URL is ldap://, do StartTLS
 	InsecureSkipVerify bool   // only for testing; do not use in prod
 
-	// Service bind for search (optional). If empty, you can bind as the user directly (via UserDNTemplate).
+	// Service bind for search (optional). If empty, bind as the user directly (via UserDNTemplate).
 	BindDN       string
 	BindPassword string
 
@@ -303,21 +303,17 @@ func (lp *LDAPProvider) Authenticate(username, password string) (*TokenClaims, e
 		}
 	}
 
+	// pkg/auth/auth_ldap.go (end of Authenticate)
 	claims := &TokenClaims{
-		Sub:       LDAP_PROVIDER + ":" + userAttrs["username"], // stable subject
+		Sub:       LDAP_PROVIDER + ":" + userAttrs["username"],
 		Username:  userAttrs["username"],
 		Email:     userAttrs["email"],
 		Roles:     roles,
-		Provider:  lp.Name(),
+		Provider:  LDAP_PROVIDER,
 		IssuedAt:  time.Now().Unix(),
-		ExpiresAt: time.Now().Add(time.Hour).Unix(), // will be set by token manager
+		ExpiresAt: 0, // server owns TTL
 	}
 
-	lp.logger.Info("LDAP authentication successful",
-		"user", userAttrs["username"],
-		"email", userAttrs["email"],
-		"roles", roles,
-	)
-
+	lp.logger.Debug("LDAP authentication successful", "subject", userDN, "email", userAttrs["email"], "roles", roles)
 	return claims, nil
 }

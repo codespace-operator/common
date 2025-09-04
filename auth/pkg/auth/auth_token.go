@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
@@ -183,58 +181,4 @@ func (j *JWTManager) RefreshToken(token string, ttl time.Duration) (string, erro
 	}
 
 	return j.CreateToken(claims.Sub, claims.Roles, claims.Provider, ttl, extras)
-}
-
-// === Minimal JWT HS256 for the server-issued session cookie ===============
-
-func MakeJWT(sub string, roles []string, provider string, secret []byte, ttl time.Duration, extras map[string]any) (string, error) {
-	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`))
-	now := time.Now().Unix()
-	exp := time.Now().Add(ttl).Unix()
-
-	payloadMap := map[string]any{
-		"sub": sub, "roles": roles, "provider": provider,
-		"iat": now, "exp": exp,
-	}
-	for k, v := range extras {
-		payloadMap[k] = v
-	}
-	payloadBytes, _ := json.Marshal(payloadMap)
-	payload := base64.RawURLEncoding.EncodeToString(payloadBytes)
-
-	msg := header + "." + payload
-	mac := hmac.New(sha256.New, secret)
-	mac.Write([]byte(msg))
-	sig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-	return msg + "." + sig, nil
-}
-
-func parseJWT(token string, secret []byte) (*TokenClaims, error) {
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return nil, errors.New("invalid token")
-	}
-	msg := parts[0] + "." + parts[1]
-	sig, err := base64.RawURLEncoding.DecodeString(parts[2])
-	if err != nil {
-		return nil, errors.New("bad signature encoding")
-	}
-	mac := hmac.New(sha256.New, secret)
-	mac.Write([]byte(msg))
-	want := mac.Sum(nil)
-	if subtle.ConstantTimeCompare(sig, want) != 1 {
-		return nil, errors.New("signature mismatch")
-	}
-	body, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return nil, errors.New("bad payload encoding")
-	}
-	var c TokenClaims
-	if err := json.Unmarshal(body, &c); err != nil {
-		return nil, errors.New("bad payload json")
-	}
-	if c.ExpiresAt == 0 || time.Now().Unix() > c.ExpiresAt {
-		return nil, errors.New("expired")
-	}
-	return &c, nil
 }

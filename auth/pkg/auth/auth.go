@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -56,13 +55,14 @@ var _ Manager = (*AuthManager)(nil)
 
 // AuthConfig holds authentication configuration
 type AuthConfig struct {
-	JWTSecret         string
-	SessionCookieName string
-	SessionTTL        time.Duration
-	AllowTokenParam   bool
-	SameSiteMode      http.SameSite
-	AuthPath          string
-	AuthLogoutPath    string
+	JWTSecret          string
+	SessionCookieName  string
+	SessionTTL         time.Duration
+	AllowTokenParam    bool
+	SameSiteMode       http.SameSite
+	AbsoluteSessionMax time.Duration
+	AuthPath           string
+	AuthLogoutPath     string
 	// OIDC Configuration
 	OIDC *OIDCConfig
 
@@ -92,6 +92,9 @@ func NewAuthManager(cfg *AuthConfig, logger *slog.Logger) (*AuthManager, error) 
 	}
 	if cfg.AuthLogoutPath == "" {
 		cfg.AuthLogoutPath = "/auth/logout"
+	}
+	if cfg.AbsoluteSessionMax == 0 {
+		cfg.AbsoluteSessionMax = 24 * time.Hour
 	}
 
 	tm, err := NewJWTManager(cfg.JWTSecret, logger)
@@ -290,41 +293,13 @@ func OptionalAuth(ctx context.Context) *TokenClaims {
 }
 
 // RequireAPIToken middleware that requires session or bearer token (legacy compatibility)
-func RequireAPIToken(cfg *AuthConfig, next http.Handler) http.Handler {
-	secret := []byte(cfg.JWTSecret)
-
+func RequireAPIToken(am Manager, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var tok string
-
-		// 1) Cookie session
-		if c, err := r.Cookie(cfg.SessionCookieName); err == nil && c.Value != "" {
-			tok = c.Value
-		}
-
-		// 2) Authorization: Bearer
-		if tok == "" {
-			h := r.Header.Get("Authorization")
-			if strings.HasPrefix(strings.ToLower(h), "bearer ") {
-				tok = strings.TrimSpace(h[len("bearer "):])
-			}
-		}
-
-		// 3) Optional query param (discouraged - behind a flag)
-		if tok == "" && cfg.AllowTokenParam {
-			tok = r.URL.Query().Get("access_token")
-		}
-
-		if tok == "" {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		c, err := parseJWT(tok, secret)
+		claims, err := am.ValidateRequest(r) // cookie/header/param -> token -> ValidateToken
 		if err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-
-		next.ServeHTTP(w, r.WithContext(WithClaims(r.Context(), c)))
+		next.ServeHTTP(w, r.WithContext(WithClaims(r.Context(), claims)))
 	})
 }

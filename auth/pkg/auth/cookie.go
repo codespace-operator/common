@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// CookieKind defines the types of cookies used for auth and/or auth flow purposes.
+// It includes session cookies, temporary authentication cookies (OIDC state/nonce/pkce),
+// logout hint cookies (id_token_hint), and CSRF cookies.
 type CookieKind int
 
 const (
@@ -15,6 +18,9 @@ const (
 	CookieCSRF
 )
 
+// CookieOpts specifies options for configuring cookies, such as path, max age,
+// HTTP-only flag, secure flag (which can be inferred from the request if nil),
+// and SameSite policy.
 type CookieOpts struct {
 	Path     string
 	MaxAge   time.Duration
@@ -23,9 +29,12 @@ type CookieOpts struct {
 	SameSite http.SameSite
 }
 
+// ptr returns a pointer to the given value of any type.
+// Used for convenience when setting pointer fields.
 func ptr[T any](v T) *T { return &v }
 
-// Default profile values
+// defaultOpts returns the default CookieOpts for a given CookieKind,
+// using configuration values from AuthManager and sensible defaults.
 func (am *AuthManager) defaultOpts(kind CookieKind) CookieOpts {
 	switch kind {
 	case CookieSession:
@@ -65,9 +74,17 @@ func (am *AuthManager) defaultOpts(kind CookieKind) CookieOpts {
 	}
 }
 
-// SetCookie centralizes all cookie writes with profile-aware defaults.
+// SetCookie sets a cookie on the response writer using profile-aware defaults
+// based on the specified CookieKind. Allows overriding defaults via CookieOpts.
+// Automatically determines the Secure flag if not explicitly set.
 func (am *AuthManager) SetCookie(w http.ResponseWriter, r *http.Request, name, value string, kind CookieKind, override *CookieOpts) {
+
 	opts := am.defaultOpts(kind)
+	if name == "" {
+		// Misconfigured cookie; log and return
+		am.logger.Warn("Attempted to set cookie with empty name", "name", name)
+		return // do nothing if misconfigured
+	}
 	if override != nil {
 		if override.Path != "" {
 			opts.Path = override.Path
@@ -100,17 +117,20 @@ func (am *AuthManager) SetCookie(w http.ResponseWriter, r *http.Request, name, v
 	})
 }
 
-// ClearCookie clears a cookie using its profile defaults (path/flags).
+// ClearCookie removes a cookie by setting its value to empty and its expiration
+// to the past, using profile defaults for path and flags. Writes both secure and
+// non-secure variants to ensure removal regardless of how it was originally set.
 func (am *AuthManager) ClearCookie(w http.ResponseWriter, name string, kind CookieKind) {
 	opts := am.defaultOpts(kind)
+
+	// secure variant
 	http.SetCookie(w, &http.Cookie{
-		Name:     name,
-		Value:    "",
-		Path:     opts.Path,
-		HttpOnly: opts.HttpOnly,
-		Secure:   opts.Secure == nil || *opts.Secure,
-		SameSite: opts.SameSite,
-		MaxAge:   -1,
-		Expires:  time.Unix(0, 0),
+		Name: name, Value: "", Path: opts.Path, HttpOnly: opts.HttpOnly,
+		Secure: true, SameSite: opts.SameSite, MaxAge: -1, Expires: time.Unix(0, 0),
+	})
+	// non-secure variant (covers the case it was set without Secure)
+	http.SetCookie(w, &http.Cookie{
+		Name: name, Value: "", Path: opts.Path, HttpOnly: opts.HttpOnly,
+		Secure: false, SameSite: opts.SameSite, MaxAge: -1, Expires: time.Unix(0, 0),
 	})
 }

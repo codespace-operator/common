@@ -129,22 +129,20 @@ func (c *TokenClaims) ExpiryTime() time.Time {
 	return time.Unix(c.ExpiresAt, 0)
 }
 
-func cookieName(cfg *AuthConfig) string {
-	if cfg.SessionCookieName != "" {
-		return cfg.SessionCookieName
-	}
-	return defaultSessionCookieName
-}
-
 // corsMiddleware adds CORS headers with credentials support
-func CorsMiddleware(allowOrigin string) func(http.Handler) http.Handler {
+func CorsMiddleware(allowList []string) func(http.Handler) http.Handler {
+	set := map[string]struct{}{}
+	for _, o := range allowList {
+		set[o] = struct{}{}
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if allowOrigin != "" {
-				w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
+			origin := r.Header.Get("Origin")
+			if _, ok := set[origin]; ok {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Vary", "Origin")
 				w.Header().Set("Access-Control-Allow-Credentials", "true")
 			}
-			w.Header().Set("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Expose-Headers", "X-Request-Id")

@@ -29,7 +29,6 @@ type OIDCConfig struct {
 	RedirectURL        string
 	Scopes             []string
 	InsecureSkipVerify bool
-	SameSite           http.SameSite
 }
 
 // OIDCProvider implements AuthProvider interface for OIDC authentication
@@ -262,9 +261,9 @@ func (o *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) (*
 		Username:  idClaims.Username,
 		Email:     idClaims.Email,
 		Roles:     roles,
-		Provider:  o.Name(),
+		Provider:  OIDC_PROVIDER,
 		IssuedAt:  time.Now().Unix(),
-		ExpiresAt: time.Now().Add(time.Hour).Unix(), // Will be set by token manager
+		ExpiresAt: 0, // server (AuthManager) owns TTL
 	}
 
 	o.logger.Info("OIDC authentication successful",

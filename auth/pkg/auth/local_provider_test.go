@@ -80,3 +80,15 @@ func TestLocalProvider_FileUsersAndBootstrap(t *testing.T) {
 		t.Fatal("expected local provider enabled")
 	}
 }
+
+func TestLocal_CreateToken_DefaultRoleViewer(t *testing.T) {
+	lp := &LocalProvider{}
+	tc := lp.createTokenFromUser(&LocalUser{
+		Username: "bob",
+		Email:    "bob@example.com",
+		// Roles empty -> expect viewer
+	})
+	if len(tc.Roles) != 1 || tc.Roles[0] != "viewer" {
+		t.Fatalf("expected default role viewer, got %+v", tc.Roles)
+	}
+}

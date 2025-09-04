@@ -40,11 +40,9 @@ type RBACInterface interface {
 	EnforceAsSubject(subject, resource, action, domain string) (bool, error)
 
 	// Permission introspection
-	// New, domain-centric helpers
 	GetAllowedDomains(subject string, roles []string, resource string, domains []string, action string) ([]string, error)
 	GetAllowedResources(subject string, roles []string, resources []string, action string, domain string) ([]string, error)
 
-	// Optional summary (unchanged, but you can rename later if you want)
 	GetUserPermissions(subject string, roles []string, resource string, domains []string, actions []string) (*UserPermissions, error)
 
 	// Management

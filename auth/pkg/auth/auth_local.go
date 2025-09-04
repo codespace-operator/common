@@ -240,17 +240,16 @@ func (lp *LocalProvider) Authenticate(username, password string) (*TokenClaims, 
 func (lp *LocalProvider) createTokenFromUser(user *LocalUser) *TokenClaims {
 	roles := user.Roles
 	if len(roles) == 0 {
-		roles = []string{"viewer"} // Default role
+		roles = []string{"viewer"}
 	}
-
 	return &TokenClaims{
 		Sub:       LOCAL_PROVIDER + ":" + user.Username,
 		Username:  user.Username,
 		Email:     user.Email,
 		Roles:     roles,
-		Provider:  lp.Name(),
+		Provider:  LOCAL_PROVIDER,
 		IssuedAt:  time.Now().Unix(),
-		ExpiresAt: time.Now().Add(time.Hour).Unix(), // Will be set by token manager
+		ExpiresAt: 0, // server owns TTL
 	}
 }
 
