@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/codespace-operator/common/compare/common/v1.0.0...common/v1.0.1) (2025-09-04)
+
+
+### Bug Fixes
+
+* **common:** fix common pkg structure ([ecb7f31](https://github.com/codespace-operator/common/commit/ecb7f317bbe9def0503c8bc4a57f3e3449dc384c))
+
 # 1.0.0 (2025-09-04)
 
 
