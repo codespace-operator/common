@@ -39,6 +39,9 @@ type Manager interface {
 	ClearCookie(w http.ResponseWriter, name string, kind CookieKind)
 	ClearAuthCookie(w http.ResponseWriter)
 	IssueSession(w http.ResponseWriter, r *http.Request, claims *TokenClaims) (string, error)
+	GetAuthPath() string
+	GetAuthLogoutPath() string
+	GetCookieName() string
 }
 
 type AuthManager struct {
@@ -105,6 +108,18 @@ func NewAuthManager(cfg *AuthConfig, logger *slog.Logger) (*AuthManager, error) 
 		return nil, err
 	}
 	return am, nil
+}
+
+func (am *AuthManager) GetAuthPath() string {
+	return am.config.AuthPath
+}
+
+func (am *AuthManager) GetAuthLogoutPath() string {
+	return am.config.AuthLogoutPath
+}
+
+func (am *AuthManager) GetCookieName() string {
+	return am.config.SessionCookieName
 }
 
 func (am *AuthManager) GetProvider(name string) Provider {
@@ -189,11 +204,6 @@ func (am *AuthManager) ValidateRequest(r *http.Request) (*TokenClaims, error) {
 	}
 
 	return am.tokenManager.ValidateToken(token)
-}
-
-// in AuthManager methods
-func (am *AuthManager) GetCookieName() string {
-	return am.config.SessionCookieName
 }
 
 // extractToken extracts token from various sources (cookie, header, query param)

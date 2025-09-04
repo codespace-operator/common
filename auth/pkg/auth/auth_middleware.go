@@ -77,7 +77,8 @@ func (m *Middleware) isPublicPath(path string) bool {
 	}
 
 	publicPrefixes := []string{
-		"/auth/",
+		m.authManager.GetAuthPath(),
+		m.authManager.GetAuthLogoutPath(),
 		"/assets/",
 		"/static/",
 	}
