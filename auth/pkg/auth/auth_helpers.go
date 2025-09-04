@@ -152,3 +152,90 @@ func (c *TokenClaims) ExpiryTime() time.Time {
 	}
 	return time.Unix(c.ExpiresAt, 0)
 }
+
+// === Cookie helpers ========================================================
+
+func SetAuthCookie(w http.ResponseWriter, r *http.Request, cfg *AuthConfig, token string, ttl time.Duration) {
+	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName(cfg),
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   int(ttl.Seconds()),
+	})
+}
+
+func ClearAuthCookie(w http.ResponseWriter, cfg *AuthConfig) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName(cfg),
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
+}
+
+func cookieName(cfg *AuthConfig) string {
+	if cfg.SessionCookieName != "" {
+		return cfg.SessionCookieName
+	}
+	return defaultSessionCookieName
+}
+
+// corsMiddleware adds CORS headers with credentials support
+func CorsMiddleware(allowOrigin string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if allowOrigin != "" {
+				w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Expose-Headers", "X-Request-Id")
+
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func SetTempCookie(w http.ResponseWriter, name, val string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     name,
+		Value:    val,
+		Path:     "/auth",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   300,
+	})
+}
+
+func ExpireTempCookie(w http.ResponseWriter, name string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     name,
+		Value:    "",
+		Path:     "/auth",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
+}
+
+func shortHash(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return base64.RawURLEncoding.EncodeToString(sum[:])[:16]
+}

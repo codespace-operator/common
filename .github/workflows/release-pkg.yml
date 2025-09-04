@@ -1,0 +1,98 @@
+name: Release Go modules (multi-module)
+on:
+  push:
+    branches: [main]
+    paths:
+      - "auth/**"
+      - "rbac/**"
+      - "go.work"
+      - ".github/workflows/release-go-mods.yml"
+      - ".github/release-config/release.go.cjs"
+      - "!changelogs/CHANGELOG.*.md"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+      count: ${{ steps.set.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - id: set
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA=$(git rev-parse HEAD~1 || true)
+          if [[ -z "${BASE_SHA}" ]]; then BASE_SHA=$(git rev-list --max-parents=0 HEAD); fi
+          mapfile -t CHANGED < <(git diff --name-only "${BASE_SHA}"..HEAD || true)
+
+          declare -A MODULES=(
+            [auth]="auth"
+            [rbac]="rbac"
+          )
+
+          arr=()
+          for name in "${!MODULES[@]}"; do
+            root="${MODULES[$name]}"
+            if printf '%s\n' "${CHANGED[@]}" | grep -q "^${root}/"; then
+              arr+=( "{\"path\":\"$root\",\"name\":\"$name\"}" )
+            fi
+          done
+
+          COUNT=${#arr[@]}
+          echo "count=${COUNT}" >> "$GITHUB_OUTPUT"
+
+          if [[ $COUNT -eq 0 ]]; then
+            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
+          else
+            IFS=, eval 'echo "matrix={\"include\":[${arr[*]}]}"' >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    needs: detect
+    if: ${{ needs.detect.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.22" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+
+      - name: Init workspace (optional)
+        run: |
+          if [[ -f go.work ]]; then go work sync || true; fi
+
+      - name: Validate & test module
+        working-directory: ${{ matrix.path }}
+        run: |
+          go mod tidy
+          go vet ./... || true
+          go test -race -count=1 ./...
+
+      - name: Install semantic-release deps
+        run: |
+          npm i -D semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github @semantic-release/commit-analyzer @semantic-release/release-notes-generator
+
+      - name: Release module
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MOD_PATH: ${{ matrix.path }} # auth or rbac
+          MOD_NAME: ${{ matrix.name }} # auth or rbac
+        run: npx semantic-release -e ./.github/release-config/release.pkg.cjs

@@ -1,15 +1,11 @@
-module github.com/codespace-operator/common
+module github.com/codespace-operator/common/rbac
 
 go 1.25.0
 
 require (
 	github.com/casbin/casbin/v2 v2.122.0
-	github.com/coreos/go-oidc/v3 v3.15.0
+	github.com/codespace-operator/common/auth v1.0.0
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-ldap/ldap/v3 v3.4.11
-	golang.org/x/crypto v0.41.0
-	golang.org/x/oauth2 v0.30.0
-	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.34.0
 	sigs.k8s.io/controller-runtime v0.22.0
 )
@@ -18,12 +14,14 @@ require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/casbin/govaluate v1.3.0 // indirect
+	github.com/coreos/go-oidc/v3 v3.15.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
+	github.com/go-ldap/ldap/v3 v3.4.11 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
@@ -40,13 +38,16 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/net v0.42.0 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/term v0.34.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apimachinery v0.34.0 // indirect
 	k8s.io/client-go v0.34.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect

@@ -12,6 +12,8 @@ github.com/casbin/govaluate v1.3.0 h1:VA0eSY0M2lA86dYd5kPPuNZMUD9QkWnOCnavGrw9my
 github.com/casbin/govaluate v1.3.0/go.mod h1:G/UnbIjZk/0uMNaLwZZmFQrR72tYRZWQkO70si/iR7A=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
+github.com/codespace-operator/common/auth v1.0.0 h1:IEawUmgmoGRZ5XX5pAfRVdBrIjAYjrpfkLivwjvFT5U=
+github.com/codespace-operator/common/auth v1.0.0/go.mod h1:SC5pMHsg2jwc4IpLtpttT8JYWP4bBDrRPOyOiDsJXZM=
 github.com/coreos/go-oidc/v3 v3.15.0 h1:R6Oz8Z4bqWR7VFQ+sPSvZPQv4x8M+sJkDO5ojgwlyAg=
 github.com/coreos/go-oidc/v3 v3.15.0/go.mod h1:HaZ3szPaZ0e4r6ebqvsLWlk2Tn+aejfmrfah6hnSYEU=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=

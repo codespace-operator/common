@@ -2,8 +2,6 @@ package auth
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -63,93 +61,6 @@ type AuthConfig struct {
 
 	// LDAP Authentication Configuration
 	LDAP *LDAPConfig
-}
-
-// === Cookie helpers ========================================================
-
-func SetAuthCookie(w http.ResponseWriter, r *http.Request, cfg *AuthConfig, token string, ttl time.Duration) {
-	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName(cfg),
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(ttl.Seconds()),
-	})
-}
-
-func ClearAuthCookie(w http.ResponseWriter, cfg *AuthConfig) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName(cfg),
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1,
-	})
-}
-
-func cookieName(cfg *AuthConfig) string {
-	if cfg.SessionCookieName != "" {
-		return cfg.SessionCookieName
-	}
-	return defaultSessionCookieName
-}
-
-// corsMiddleware adds CORS headers with credentials support
-func CorsMiddleware(allowOrigin string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if allowOrigin != "" {
-				w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-			}
-			w.Header().Set("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Expose-Headers", "X-Request-Id")
-
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-func SetTempCookie(w http.ResponseWriter, name, val string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     name,
-		Value:    val,
-		Path:     "/auth",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   300,
-	})
-}
-
-func ExpireTempCookie(w http.ResponseWriter, name string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     name,
-		Value:    "",
-		Path:     "/auth",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1,
-	})
-}
-
-func shortHash(s string) string {
-	sum := sha256.Sum256([]byte(s))
-	return base64.RawURLEncoding.EncodeToString(sum[:])[:16]
 }
 
 // NewAuthManager creates a new authentication manager
@@ -274,99 +185,6 @@ func (am *AuthManager) extractToken(r *http.Request) string {
 	return ExtractTokenFromRequest(r, cookieName(am.config), am.config.AllowTokenParam)
 }
 
-// Middleware provides HTTP middleware functions
-type Middleware struct {
-	authManager Manager //
-	logger      *slog.Logger
-}
-
-// NewMiddleware creates authentication middleware
-func NewMiddleware(am Manager, logger *slog.Logger) *Middleware {
-	if logger == nil {
-		logger = slog.Default()
-	}
-	return &Middleware{authManager: am, logger: logger}
-}
-
-// RequireAuth middleware that requires valid authentication
-func (m *Middleware) RequireAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		claims, err := m.authManager.ValidateRequest(r)
-		if err != nil {
-			m.logger.Debug("Authentication failed", "error", err, "path", r.URL.Path)
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		// Add claims to request context
-		r = r.WithContext(WithClaims(r.Context(), claims))
-		next.ServeHTTP(w, r)
-	})
-}
-
-// OptionalAuth middleware that adds user info if available but doesn't require it
-func (m *Middleware) OptionalAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if claims, err := m.authManager.ValidateRequest(r); err == nil {
-			r = r.WithContext(WithClaims(r.Context(), claims))
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// AuthGate provides smart authentication routing
-func (m *Middleware) AuthGate(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-
-		// Public endpoints (no auth required)
-		if m.isPublicPath(path) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		// API endpoints require authentication
-		if strings.HasPrefix(path, "/api/") {
-			m.RequireAuth(next).ServeHTTP(w, r)
-			return
-		}
-
-		// Default to serving content with optional auth
-		m.OptionalAuth(next).ServeHTTP(w, r)
-	})
-}
-
-// isPublicPath checks if a path is publicly accessible
-func (m *Middleware) isPublicPath(path string) bool {
-	publicPaths := []string{
-		"/healthz",
-		"/readyz",
-		"/",
-	}
-
-	publicPrefixes := []string{
-		"/auth/",
-		"/assets/",
-		"/static/",
-	}
-
-	// Check exact matches
-	for _, publicPath := range publicPaths {
-		if path == publicPath {
-			return true
-		}
-	}
-
-	// Check prefixes
-	for _, prefix := range publicPrefixes {
-		if strings.HasPrefix(path, prefix) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // SetAuthCookie sets authentication cookie
 func (am *AuthManager) SetAuthCookie(w http.ResponseWriter, r *http.Request, token string) {
 	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
@@ -392,6 +210,29 @@ func (am *AuthManager) ClearAuthCookie(w http.ResponseWriter) {
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	})
+}
+
+// IssueSession creates a new session for the user
+func (am *AuthManager) IssueSession(w http.ResponseWriter, r *http.Request, c *TokenClaims) (string, error) {
+	if c == nil || c.Sub == "" {
+		return "", errors.New("empty claims")
+	}
+	ttl := am.config.SessionTTL
+	if ttl <= 0 {
+		ttl = time.Hour
+	}
+	token, err := am.tokenManager.CreateToken(
+		c.Sub, c.Roles, c.Provider, ttl,
+		map[string]any{
+			"email":    c.Email,
+			"username": c.Username,
+		},
+	)
+	if err != nil {
+		return "", err
+	}
+	am.SetAuthCookie(w, r, token)
+	return token, nil
 }
 
 // WithClaims adds token claims to the context
@@ -476,27 +317,4 @@ func RequireAPIToken(cfg *AuthConfig, next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r.WithContext(WithClaims(r.Context(), c)))
 	})
-}
-
-// IssueSession creates a new session for the user
-func (am *AuthManager) IssueSession(w http.ResponseWriter, r *http.Request, c *TokenClaims) (string, error) {
-	if c == nil || c.Sub == "" {
-		return "", errors.New("empty claims")
-	}
-	ttl := am.config.SessionTTL
-	if ttl <= 0 {
-		ttl = time.Hour
-	}
-	token, err := am.tokenManager.CreateToken(
-		c.Sub, c.Roles, c.Provider, ttl,
-		map[string]any{
-			"email":    c.Email,
-			"username": c.Username,
-		},
-	)
-	if err != nil {
-		return "", err
-	}
-	am.SetAuthCookie(w, r, token)
-	return token, nil
 }
