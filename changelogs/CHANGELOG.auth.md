@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/codespace-operator/common/compare/auth/v1.1.0...auth/v1.2.0) (2025-09-04)
+
+
+### Features
+
+* **auth:** auth pkg bump due to immutability ([d160b68](https://github.com/codespace-operator/common/commit/d160b683b96901b8627d674b357e9ffb4fdced6d))
+
 # [1.1.0](https://github.com/codespace-operator/common/compare/auth/v1.0.0...auth/v1.1.0) (2025-09-04)
 
 
