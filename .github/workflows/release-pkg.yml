@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - "auth/**"
+      - "common/**"
       - "rbac/**"
       - "!changelogs/CHANGELOG.*.md"
   workflow_dispatch: {}
@@ -38,6 +39,7 @@ jobs:
           declare -A MODULES=(
             [auth]="auth"
             [rbac]="rbac"
+            [common]="common"
           )
 
           arr=()

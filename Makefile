@@ -6,12 +6,15 @@ COVERPKG := ./...
 tidy:
 	cd ./auth && $(GO) mod tidy
 	cd ./rbac && $(GO) mod tidy
+	cd ./common && $(GO) mod tidy
 
 lint:
 	golangci-lint run
 
 test:
-	$(GO) test -count=1 $(PKGS)
+	cd ./auth && $(GO) test ./... -count=1 $(PKGS)
+	cd ./rbac && $(GO) test ./... -count=1 $(PKGS)
+	cd ./common && $(GO) test ./... -count=1 $(PKGS)
 
 test-race:
 	$(GO) test -count=1 -race $(PKGS)
