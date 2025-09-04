@@ -1,0 +1,50 @@
+name: Verify Packages (PR)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - internal/**
+      - cmd/**
+      - ui/**
+      - Dockerfile
+      - go.mod
+      - go.sum
+      - "!CHANGELOG.*.md"
+      - "!changelogs/CHANGELOG.*.md"
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha }}
+  cancel-in-progress: true
+
+jobs:
+  operator-build:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.25" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+
+      - name: Validate & test module
+        run: |
+          go mod tidy
+          go vet ./... || true
+          go test -race -count=1 ./...
+
+      - name: Install release deps
+        run: |
+          npm i -D semantic-release @semantic-release/changelog @semantic-release/exec @semantic-release/git @semantic-release/github
+
+      - name: Release common
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release -e ./.github/release-config/release.common.cjs --dry-run

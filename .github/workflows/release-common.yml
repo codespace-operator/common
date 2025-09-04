@@ -1,15 +1,13 @@
-name: Release Package
+name: Release Common
 on:
   push:
     branches: [main]
     paths:
-      # - .github/release-config/release.common.cjs
-      - pkg/**
-      - cmd/**
       - go.mod
       - go.sum
+      - auth/**
+      - rbac/**
       - "!CHANGELOG.md"
-
   workflow_dispatch: {}
 
 permissions:
@@ -34,16 +32,22 @@ jobs:
         with: { fetch-depth: 0 }
       - name: Fetch tags
         run: git fetch --tags --force --prune
-
+      - uses: actions/setup-go@v5
+        with: { go-version: "1.25" }
       - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
+        with: { node-version: "22" }
+
+      - name: Validate & test module
+        run: |
+          go mod tidy
+          go vet ./... || true
+          go test -race -count=1 ./...
 
       - name: Install release deps
         run: |
           npm i -D semantic-release @semantic-release/changelog @semantic-release/exec @semantic-release/git @semantic-release/github
 
-      - name: Release Operator
+      - name: Release common
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release -e ./.github/release-config/release.operator.cjs
+        run: npx semantic-release -e ./.github/release-config/release.common.cjs

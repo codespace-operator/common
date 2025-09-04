@@ -4,7 +4,8 @@ COVERPKG := ./...
 
 .PHONY: tidy lint test test-race cover
 tidy:
-	$(GO) mod tidy
+	cd ./auth && $(GO) mod tidy
+	cd ./rbac && $(GO) mod tidy
 
 lint:
 	golangci-lint run

@@ -1,11 +1,12 @@
 module github.com/codespace-operator/common
 
-go 1.24.3
+go 1.25.0
 
 require (
-	github.com/casbin/casbin/v2 v2.121.0
+	github.com/casbin/casbin/v2 v2.122.0
 	github.com/coreos/go-oidc/v3 v3.15.0
 	github.com/fsnotify/fsnotify v1.9.0
+	github.com/go-ldap/ldap/v3 v3.4.11
 	golang.org/x/crypto v0.41.0
 	golang.org/x/oauth2 v0.30.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -14,12 +15,14 @@ require (
 )
 
 require (
+	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/casbin/govaluate v1.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
+	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect

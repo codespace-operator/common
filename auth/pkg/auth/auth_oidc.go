@@ -246,7 +246,7 @@ func (o *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) (*
 	}
 
 	// Create canonical subject identifier
-	canonicalSubject := "oidc:" + o.issuerID + ":" + idToken.Subject
+	canonicalSubject := OIDC_PROVIDER + ":" + o.issuerID + ":" + idToken.Subject
 
 	// Store ID token for logout
 	setTempCookie(w, "oidc_id_token_hint", rawIDToken)

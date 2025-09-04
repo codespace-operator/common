@@ -94,7 +94,7 @@ func clearTempCookie(w http.ResponseWriter, name string) {
 func ExtractTokenFromRequest(r *http.Request, cookieName string, allowURLParam bool) string {
 	// 1. Try session cookie first
 	if cookieName == "" {
-		cookieName = "codespace_session"
+		cookieName = "you_should_change_me"
 	}
 
 	if c, err := r.Cookie(cookieName); err == nil && c.Value != "" {

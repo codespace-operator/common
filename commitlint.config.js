@@ -1,9 +1,5 @@
 // commitlint.config.js
 // Enforces Conventional Commit rules for PR titles and commit messages
-// Examples:
-//   feat(operator): add new reconciliation loop
-//   fix(crd): correct schema for Foo
-//   chore(ci): bump actions/checkout version
 
 module.exports = {
   extends: ["@commitlint/config-conventional"],
@@ -12,7 +8,7 @@ module.exports = {
     "scope-enum": [
       2,
       "always",
-      ["auth", "oidc", "ldap", "rbac", "api", "repo", "ci", "test", "common"],
+      ["auth", "rbac", "repo", "ci", "test", "common"],
     ],
 
     // ✅ Restrict commit types to Conventional Commit "verbs"

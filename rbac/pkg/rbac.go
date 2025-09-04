@@ -19,16 +19,17 @@ import (
 	authv1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/codespace-operator/common/pkg/auth"
+	auth "github.com/codespace-operator/common/auth/pkg/auth"
 )
 
 const (
 	defaultModelPath  = "/etc/codespace-operator/rbac/model.conf"
 	defaultPolicyPath = "/etc/codespace-operator/rbac/policy.csv"
-	envModelPath      = "CODESPACE_SERVER_RBAC_MODEL_PATH"
-	envPolicyPath     = "CODESPACE_SERVER_RBAC_POLICY_PATH"
+	envModelPath      = "RBAC_MODEL_PATH"
+	envPolicyPath     = "RBAC_POLICY_PATH"
 )
 
+// RBACInterface defines the contract for RBAC systems
 // RBACInterface defines the contract for RBAC systems
 type RBACInterface interface {
 	// Core enforcement
@@ -37,16 +38,19 @@ type RBACInterface interface {
 	EnforceAsSubject(subject, resource, action, domain string) (bool, error)
 
 	// Permission introspection
-	GetUserPermissions(subject string, roles []string, namespaces []string, actions []string) (*UserPermissions, error)
-	GetAllowedNamespaces(subject string, roles []string, namespaces []string, action string) ([]string, error)
-	CanAccessNamespace(subject string, roles []string, namespace string) (bool, error)
-	GetRolesForUser(subject string) ([]string, error)
+	// New, domain-centric helpers
+	GetAllowedDomains(subject string, roles []string, resource string, domains []string, action string) ([]string, error)
+	GetAllowedResources(subject string, roles []string, resources []string, action string, domain string) ([]string, error)
+
+	// Optional summary (unchanged, but you can rename later if you want)
+	GetUserPermissions(subject string, roles []string, resource string, domains []string, actions []string) (*UserPermissions, error)
 
 	// Management
+	GetRolesForUser(subject string) ([]string, error)
 	Reload() error
 }
 
-// RBAC implements RBACInterface with Casbin backend
+// RBAC implements RBACInterface with Casbin
 type RBAC struct {
 	mu         sync.RWMutex
 	enf        *casbin.Enforcer
@@ -70,18 +74,20 @@ type Middleware struct {
 
 // PermissionCheck represents a single permission check result
 type PermissionCheck struct {
-	Resource  string `json:"resource"`
-	Action    string `json:"action"`
-	Namespace string `json:"namespace"`
-	Allowed   bool   `json:"allowed"`
+	Resource string `json:"resource"`
+	Action   string `json:"action"`
+	Domain   string `json:"domain"`
+	Allowed  bool   `json:"allowed"`
 }
 
 // UserPermissions represents all permissions for a user
+// UserPermissions represents all permissions for a user
 type UserPermissions struct {
-	Subject     string              `json:"subject"`
-	Roles       []string            `json:"roles"`
-	Permissions []PermissionCheck   `json:"permissions"`
-	Namespaces  map[string][]string `json:"namespaces"` // namespace -> allowed actions
+	Subject     string            `json:"subject"`
+	Roles       []string          `json:"roles"`
+	Permissions []PermissionCheck `json:"permissions"`
+	// Domains (previously Domains): domain -> allowed actions
+	Domains map[string][]string `json:"domains"`
 }
 
 // NewMiddleware creates RBAC middleware
@@ -248,9 +254,16 @@ func (r *RBAC) startWatcher(ctx context.Context) error {
 				r.logger.Debug("RBAC file watcher stopped")
 				return
 			case event := <-watcher.Events:
-				if event.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove|fsnotify.Rename) == 0 {
+				if event.Op&(fsnotify.Create|fsnotify.Write) == 0 {
 					continue
 				}
+				if _, err1 := os.Stat(r.modelPath); err1 != nil {
+					continue
+				}
+				if _, err2 := os.Stat(r.policyPath); err2 != nil {
+					continue
+				}
+				_ = r.reload()
 
 				now := time.Now()
 				if now.Sub(lastReload) < debounce {
@@ -304,6 +317,12 @@ func (r *RBAC) reload() error {
 
 // Reload forces a reload of RBAC policies
 func (r *RBAC) Reload() error {
+	if _, err := os.Stat(r.modelPath); err != nil {
+		return err
+	}
+	if _, err := os.Stat(r.policyPath); err != nil {
+		return err
+	}
 	return r.reload()
 }
 
@@ -398,7 +417,7 @@ func (r *RBAC) EnforceAsSubject(subject, resource, action, domain string) (bool,
 }
 
 // GetUserPermissions returns comprehensive permission information
-func (r *RBAC) GetUserPermissions(subject string, roles []string, namespaces []string, actions []string) (*UserPermissions, error) {
+func (r *RBAC) GetUserPermissions(subject string, roles []string, resource string, domains []string, actions []string) (*UserPermissions, error) {
 	r.mu.RLock()
 	enf := r.enf
 	r.mu.RUnlock()
@@ -415,24 +434,24 @@ func (r *RBAC) GetUserPermissions(subject string, roles []string, namespaces []s
 		Subject:     subject,
 		Roles:       roles,
 		Permissions: make([]PermissionCheck, 0),
-		Namespaces:  make(map[string][]string),
+		Domains:     make(map[string][]string),
 	}
 
-	// Check each combination of resource, action, and namespace
-	for _, ns := range namespaces {
+	// Check each combination of resource, action, and domain
+	for _, dom := range domains {
 		allowedActions := make([]string, 0)
 
 		for _, action := range actions {
-			allowed, err := r.Enforce(subject, roles, "session", action, ns)
+			allowed, err := r.Enforce(subject, roles, resource, action, dom)
 			if err != nil {
-				return nil, fmt.Errorf("failed to check permission for %s/%s/%s: %w", subject, action, ns, err)
+				return nil, fmt.Errorf("failed to check permission for %s/%s/%s: %w", subject, action, dom, err)
 			}
 
 			permissions.Permissions = append(permissions.Permissions, PermissionCheck{
-				Resource:  "session",
-				Action:    action,
-				Namespace: ns,
-				Allowed:   allowed,
+				Resource: resource,
+				Action:   action,
+				Domain:   dom,
+				Allowed:  allowed,
 			})
 
 			if allowed {
@@ -441,36 +460,49 @@ func (r *RBAC) GetUserPermissions(subject string, roles []string, namespaces []s
 		}
 
 		if len(allowedActions) > 0 {
-			permissions.Namespaces[ns] = allowedActions
+			permissions.Domains[dom] = allowedActions
 		}
 	}
 
 	return permissions, nil
 }
 
-// GetAllowedNamespaces returns namespaces where the user has specified permissions
-func (r *RBAC) GetAllowedNamespaces(subject string, roles []string, namespaces []string, action string) ([]string, error) {
-	allowed := make([]string, 0)
-
-	for _, ns := range namespaces {
-		ok, err := r.Enforce(subject, roles, "session", action, ns)
+// GetAllowedDomains returns domains where the user can perform `action` on `resource`.
+func (r *RBAC) GetAllowedDomains(subject string, roles []string, resource string, domains []string, action string) ([]string, error) {
+	allowed := make([]string, 0, len(domains))
+	for _, d := range domains {
+		ok, err := r.Enforce(subject, roles, resource, action, d)
 		if err != nil {
-			return nil, fmt.Errorf("failed to check namespace %s: %w", ns, err)
+			return nil, fmt.Errorf("failed to check domain %s: %w", d, err)
 		}
 		if ok {
-			allowed = append(allowed, ns)
+			allowed = append(allowed, d)
 		}
 	}
-
 	return allowed, nil
 }
 
-// CanAccessNamespace checks if user has any session permissions in a namespace
-func (r *RBAC) CanAccessNamespace(subject string, roles []string, namespace string) (bool, error) {
+// GetAllowedResources returns resources where the user can perform `action` in `domain`.
+func (r *RBAC) GetAllowedResources(subject string, roles []string, resources []string, action string, domain string) ([]string, error) {
+	allowed := make([]string, 0, len(resources))
+	for _, res := range resources {
+		ok, err := r.Enforce(subject, roles, res, action, domain)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check resource %s: %w", res, err)
+		}
+		if ok {
+			allowed = append(allowed, res)
+		}
+	}
+	return allowed, nil
+}
+
+// CanAccessDomain checks if user has any resource permissions in a domain
+func (r *RBAC) CanAccessDomain(subject string, roles []string, resource string, domain string) (bool, error) {
 	actions := []string{"get", "list", "watch", "create", "update", "delete", "scale"}
 
 	for _, action := range actions {
-		ok, err := r.Enforce(subject, roles, "session", action, namespace)
+		ok, err := r.Enforce(subject, roles, resource, action, domain)
 		if err != nil {
 			return false, err
 		}

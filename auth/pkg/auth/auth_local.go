@@ -244,7 +244,7 @@ func (lp *LocalProvider) createTokenFromUser(user *LocalUser) *TokenClaims {
 	}
 
 	return &TokenClaims{
-		Sub:       "local:" + user.Username,
+		Sub:       LOCAL_PROVIDER + ":" + user.Username,
 		Username:  user.Username,
 		Email:     user.Email,
 		Roles:     roles,

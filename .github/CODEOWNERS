@@ -1,17 +1,6 @@
-# Operator
-/internal/ @codespace-operator
-/cmd/session-controller/ @codespace-operator
-/config/manager/ @codespace-operator
-/config/rbac/ @codespace-operator
-/test/ @codespace-operator
-
-# Server/UI
-/internal/server/ @codespace-operator
-/ui/ @codespace-operator
-
-# CRDs
-/api/ @codespace-operator
-/config/crd/ @codespace-operator
+# Auth
+/pkg/auth @codespace-operator
+/pkg/rbac @codespace-operator
 
 # Infra/docs
 /.github/ @codespace-operator/maintainers

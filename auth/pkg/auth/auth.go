@@ -60,6 +60,9 @@ type AuthConfig struct {
 
 	// Local Authentication Configuration
 	Local *LocalConfig
+
+	// LDAP Authentication Configuration
+	LDAP *LDAPConfig
 }
 
 // === Cookie helpers ========================================================
@@ -220,13 +223,31 @@ func (am *AuthManager) initializeProviders() error {
 	if len(am.providers) == 0 {
 		am.logger.Warn("No authentication providers configured")
 	}
+	// Initialize LDAP provider if configured
+	if am.config.LDAP != nil && am.config.LDAP.Enabled {
+		lp, err := NewLDAPProvider(am.config.LDAP, am.tokenManager, am.logger)
+		if err != nil {
+			am.logger.Error("Failed to initialize LDAP provider", "error", err)
+			return err
+		}
+		am.providers[LDAP_PROVIDER] = lp
+		am.logger.Info("LDAP authentication provider initialized", "url", am.config.LDAP.URL)
+	}
 
 	return nil
 }
 
-// GetProvider returns a specific authentication provider
+// GetProvider returns the token manager
 func (am *AuthManager) GetTokenManager() TokenManager {
 	return am.tokenManager
+}
+
+// GetProvider returns the LDAPProvider
+func (am *AuthManager) GetLDAPProvider() LDAPAuthProvider {
+	if p, ok := am.providers[LDAP_PROVIDER].(LDAPAuthProvider); ok {
+		return p
+	}
+	return nil
 }
 
 // ValidateRequest validates authentication from HTTP request
