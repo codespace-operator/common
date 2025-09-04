@@ -5,9 +5,6 @@ on:
     paths:
       - "auth/**"
       - "rbac/**"
-      - "go.work"
-      - ".github/workflows/release-go-mods.yml"
-      - ".github/release-config/release.go.cjs"
       - "!changelogs/CHANGELOG.*.md"
   workflow_dispatch: {}
 
