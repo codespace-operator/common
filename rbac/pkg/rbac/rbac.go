@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	defaultModelPath  = "/etc/codespace-operator/rbac/model.conf"
-	defaultPolicyPath = "/etc/codespace-operator/rbac/policy.csv"
+	appName           = "codespace-common"
+	defaultModelPath  = "/etc/" + appName + "/rbac/model.conf"
+	defaultPolicyPath = "/etc/" + appName + "/rbac/policy.csv"
 	envModelPath      = "RBAC_MODEL_PATH"
 	envPolicyPath     = "RBAC_POLICY_PATH"
 )

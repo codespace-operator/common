@@ -5,10 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 
+	auth "github.com/codespace-operator/common/auth/pkg/auth"
 	authv1 "k8s.io/api/authorization/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	auth "github.com/codespace-operator/common/auth/pkg/auth"
 )
 
 // Middleware provides HTTP middleware functions
