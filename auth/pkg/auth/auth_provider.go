@@ -16,13 +16,15 @@ type Provider interface {
 
 // common fields for providers
 type ProviderBase struct {
-	tokenManager TokenManager
-	logger       *slog.Logger
+	tokenManager      TokenManager
+	logger            *slog.Logger
+	authManagerParent *AuthManager
 }
 
-func NewProviderBase(tokenManager TokenManager, logger *slog.Logger) ProviderBase {
+func NewProviderBase(tokenManager TokenManager, logger *slog.Logger, authManagerParent *AuthManager) ProviderBase {
 	return ProviderBase{
-		tokenManager: tokenManager,
-		logger:       logger,
+		tokenManager:      tokenManager,
+		logger:            logger,
+		authManagerParent: authManagerParent,
 	}
 }

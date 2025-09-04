@@ -41,7 +41,7 @@ func TestLocalProvider_FileUsersAndBootstrap(t *testing.T) {
 		BootstrapLoginAllowed: true,
 		BootstrapUser:         "admin",
 		BootstrapPasswd:       "adminpw",
-	}, tm, logger)
+	}, tm, logger, nil)
 	if err != nil {
 		t.Fatalf("NewLocalProvider: %v", err)
 	}

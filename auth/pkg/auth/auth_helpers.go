@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -65,57 +66,32 @@ func constantTimeEqual(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
-// Cookie helper functions
-func setTempCookie(w http.ResponseWriter, name, value string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     name,
-		Value:    value,
-		Path:     "/auth",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   300, // 5 minutes
-	})
-}
-
-func clearTempCookie(w http.ResponseWriter, name string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     name,
-		Value:    "",
-		Path:     "/auth",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1,
-	})
-}
-
 // ExtractTokenFromRequest extracts JWT token from HTTP request
-func ExtractTokenFromRequest(r *http.Request, cookieName string, allowURLParam bool) string {
+func ExtractTokenFromRequest(r *http.Request, cookieName string, allowURLParam bool) (string, error) {
 	// 1. Try session cookie first
 	if cookieName == "" {
-		cookieName = "you_should_change_me"
+		return "", errors.New("cookieName is misconfigured, no token extracted")
 	}
 
 	if c, err := r.Cookie(cookieName); err == nil && c.Value != "" {
-		return c.Value
+		return c.Value, nil
 	}
 
 	// 2. Try Authorization header
 	if auth := r.Header.Get("Authorization"); auth != "" {
 		if len(auth) > 7 && strings.ToLower(auth[:7]) == "bearer " {
-			return strings.TrimSpace(auth[7:])
+			return strings.TrimSpace(auth[7:]), nil
 		}
 	}
 
 	// 3. Try query parameter if enabled (not recommended)
 	if allowURLParam {
 		if token := r.URL.Query().Get("access_token"); token != "" {
-			return token
+			return token, nil
 		}
 	}
 
-	return ""
+	return "", nil
 }
 
 // sign creates HMAC signature for the message
@@ -153,34 +129,6 @@ func (c *TokenClaims) ExpiryTime() time.Time {
 	return time.Unix(c.ExpiresAt, 0)
 }
 
-// === Cookie helpers ========================================================
-
-func SetAuthCookie(w http.ResponseWriter, r *http.Request, cfg *AuthConfig, token string, ttl time.Duration) {
-	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName(cfg),
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(ttl.Seconds()),
-	})
-}
-
-func ClearAuthCookie(w http.ResponseWriter, cfg *AuthConfig) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName(cfg),
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1,
-	})
-}
-
 func cookieName(cfg *AuthConfig) string {
 	if cfg.SessionCookieName != "" {
 		return cfg.SessionCookieName
@@ -209,30 +157,6 @@ func CorsMiddleware(allowOrigin string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-func SetTempCookie(w http.ResponseWriter, name, val string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     name,
-		Value:    val,
-		Path:     "/auth",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   300,
-	})
-}
-
-func ExpireTempCookie(w http.ResponseWriter, name string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     name,
-		Value:    "",
-		Path:     "/auth",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1,
-	})
 }
 
 func shortHash(s string) string {

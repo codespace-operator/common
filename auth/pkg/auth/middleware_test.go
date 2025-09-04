@@ -13,23 +13,23 @@ func TestExtractTokenFromRequest_Order(t *testing.T) {
 	// Cookie first
 	r := httptest.NewRequest("GET", "/", nil)
 	r.AddCookie(&http.Cookie{Name: "codespace_session", Value: "cookieTok"})
-	if tok := ExtractTokenFromRequest(r, "codespace_session", true); tok != "cookieTok" {
+	if tok, err := ExtractTokenFromRequest(r, "codespace_session", true); tok != "cookieTok" || err != nil {
 		t.Fatalf("want cookieTok, got %q", tok)
 	}
 
 	// Authorization header
 	r = httptest.NewRequest("GET", "/", nil)
 	r.Header.Set("Authorization", "Bearer headerTok")
-	if tok := ExtractTokenFromRequest(r, "codespace_session", true); tok != "headerTok" {
+	if tok, err := ExtractTokenFromRequest(r, "codespace_session", true); tok != "headerTok" || err != nil {
 		t.Fatalf("want headerTok, got %q", tok)
 	}
 
 	// Query param (only when allowed)
 	r = httptest.NewRequest("GET", "/?access_token=urlTok", nil)
-	if tok := ExtractTokenFromRequest(r, "codespace_session", false); tok != "" {
+	if tok, err := ExtractTokenFromRequest(r, "codespace_session", false); tok != "" || err != nil {
 		t.Fatalf("url param should be disabled, got %q", tok)
 	}
-	if tok := ExtractTokenFromRequest(r, "codespace_session", true); tok != "urlTok" {
+	if tok, err := ExtractTokenFromRequest(r, "codespace_session", true); tok != "urlTok" || err != nil {
 		t.Fatalf("want urlTok, got %q", tok)
 	}
 }

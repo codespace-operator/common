@@ -29,6 +29,7 @@ type OIDCConfig struct {
 	RedirectURL        string
 	Scopes             []string
 	InsecureSkipVerify bool
+	SameSite           http.SameSite
 }
 
 // OIDCProvider implements AuthProvider interface for OIDC authentication
@@ -44,7 +45,7 @@ type OIDCProvider struct {
 }
 
 // NewOIDCProvider creates a new OIDC authentication provider
-func NewOIDCProvider(config *OIDCConfig, tokenManager TokenManager, logger *slog.Logger) (*OIDCProvider, error) {
+func NewOIDCProvider(config *OIDCConfig, tokenManager TokenManager, logger *slog.Logger, authManagerParent *AuthManager) (*OIDCProvider, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -102,7 +103,7 @@ func NewOIDCProvider(config *OIDCConfig, tokenManager TokenManager, logger *slog
 	}
 
 	return &OIDCProvider{
-		ProviderBase: NewProviderBase(tokenManager, logger),
+		ProviderBase: NewProviderBase(tokenManager, logger, authManagerParent),
 		config:       config,
 		provider:     provider,
 		verifier:     verifier,
@@ -125,9 +126,9 @@ func (o *OIDCProvider) StartAuth(w http.ResponseWriter, r *http.Request, redirec
 	verifier, challenge := generatePKCEPair()
 
 	// Store temporary values in cookies
-	setTempCookie(w, OIDCStateCookie, state)
-	setTempCookie(w, OIDCNonceCookie, nonce)
-	setTempCookie(w, OIDCPKCECookie, verifier)
+	o.authManagerParent.SetCookie(w, r, OIDCStateCookie, state, CookieTempAuth, nil)
+	o.authManagerParent.SetCookie(w, r, OIDCNonceCookie, nonce, CookieTempAuth, nil)
+	o.authManagerParent.SetCookie(w, r, OIDCPKCECookie, verifier, CookieTempAuth, nil)
 
 	// Encode redirect path in state if provided
 	if redirectAfter != "" && isSafeRedirect(redirectAfter) {
@@ -248,13 +249,12 @@ func (o *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) (*
 	// Create canonical subject identifier
 	canonicalSubject := OIDC_PROVIDER + ":" + o.issuerID + ":" + idToken.Subject
 
-	// Store ID token for logout
-	setTempCookie(w, "oidc_id_token_hint", rawIDToken)
+	// Store ID token for logout (tight scope + short TTL via CookieLogoutHint)
+	o.authManagerParent.SetCookie(w, r, "oidc_id_token_hint", rawIDToken, CookieLogoutHint, nil)
 
-	// Clear temporary cookies
-	clearTempCookie(w, OIDCStateCookie)
-	clearTempCookie(w, OIDCNonceCookie)
-	clearTempCookie(w, OIDCPKCECookie)
+	o.authManagerParent.ClearCookie(w, OIDCStateCookie, CookieTempAuth)
+	o.authManagerParent.ClearCookie(w, OIDCNonceCookie, CookieTempAuth)
+	o.authManagerParent.ClearCookie(w, OIDCPKCECookie, CookieTempAuth)
 
 	// Create token claims
 	claims := &TokenClaims{
@@ -274,8 +274,8 @@ func (o *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) (*
 
 	// Handle redirect if specified
 	if redirectAfter != "" && isSafeRedirect(redirectAfter) {
-		// Store the redirect path in a cookie or session for the calling handler to use
-		setTempCookie(w, "post_auth_redirect", redirectAfter)
+		// Short-lived temp cookie for the redirect hint (TempAuth profile).
+		o.authManagerParent.SetCookie(w, r, "post_auth_redirect", redirectAfter, CookieTempAuth, nil)
 	}
 	return claims, nil
 }
@@ -283,7 +283,7 @@ func (o *OIDCProvider) HandleCallback(w http.ResponseWriter, r *http.Request) (*
 // Logout handles OIDC logout flow
 func (o *OIDCProvider) Logout(w http.ResponseWriter, r *http.Request) error {
 	// Clear any provider-specific cookies/state
-	clearTempCookie(w, "oidc_id_token_hint")
+	o.authManagerParent.ClearAuthCookie(w)
 
 	// Redirect to provider's logout endpoint if available
 	if o.endSession != "" {
@@ -291,7 +291,7 @@ func (o *OIDCProvider) Logout(w http.ResponseWriter, r *http.Request) error {
 		if c, err := r.Cookie("oidc_id_token_hint"); err == nil {
 			hint = c.Value
 		}
-
+		o.authManagerParent.ClearCookie(w, "oidc_id_token_hint", CookieLogoutHint)
 		logoutURL := o.endSession
 		if o.config.RedirectURL != "" {
 			logoutURL += "?post_logout_redirect_uri=" + url.QueryEscape(o.config.RedirectURL)

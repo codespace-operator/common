@@ -14,10 +14,13 @@ type contextKey struct {
 	name string
 }
 
-var claimsKey = &contextKey{"claims"}
+var (
+	claimsKey = &contextKey{"claims"}
+)
 
 const (
-	defaultSessionCookieName = "codespace_session"
+	defaultSessionCookieName = "you_should_change_me"
+	defaultSameSiteMode      = http.SameSiteStrictMode
 )
 
 type Manager interface {
@@ -32,6 +35,8 @@ type Manager interface {
 
 	// session helpers
 	SetAuthCookie(w http.ResponseWriter, r *http.Request, token string)
+	SetCookie(w http.ResponseWriter, r *http.Request, name, value string, kind CookieKind, override *CookieOpts)
+	ClearCookie(w http.ResponseWriter, name string, kind CookieKind)
 	ClearAuthCookie(w http.ResponseWriter)
 	IssueSession(w http.ResponseWriter, r *http.Request, claims *TokenClaims) (string, error)
 }
@@ -52,7 +57,9 @@ type AuthConfig struct {
 	SessionCookieName string
 	SessionTTL        time.Duration
 	AllowTokenParam   bool
-
+	SameSiteMode      http.SameSite
+	AuthPath          string
+	AuthLogoutPath    string
 	// OIDC Configuration
 	OIDC *OIDCConfig
 
@@ -71,6 +78,19 @@ func NewAuthManager(cfg *AuthConfig, logger *slog.Logger) (*AuthManager, error) 
 	if cfg.SessionTTL == 0 {
 		cfg.SessionTTL = time.Hour
 	}
+	if cfg.SessionCookieName == "" {
+		cfg.SessionCookieName = defaultSessionCookieName
+	}
+	if cfg.SameSiteMode == 0 {
+		cfg.SameSiteMode = defaultSameSiteMode
+	}
+	if cfg.AuthPath == "" {
+		cfg.AuthPath = "/auth"
+	}
+	if cfg.AuthLogoutPath == "" {
+		cfg.AuthLogoutPath = "/auth/logout"
+	}
+
 	tm, err := NewJWTManager(cfg.JWTSecret, logger)
 	if err != nil {
 		return nil, err
@@ -111,7 +131,7 @@ func (am *AuthManager) ListProviders() []string {
 func (am *AuthManager) initializeProviders() error {
 	// Initialize OIDC provider if configured
 	if am.config.OIDC != nil && am.config.OIDC.IssuerURL != "" {
-		oidcProvider, err := NewOIDCProvider(am.config.OIDC, am.tokenManager, am.logger)
+		oidcProvider, err := NewOIDCProvider(am.config.OIDC, am.tokenManager, am.logger, am)
 		if err != nil {
 			am.logger.Error("Failed to initialize OIDC provider", "error", err)
 			return err
@@ -122,7 +142,7 @@ func (am *AuthManager) initializeProviders() error {
 
 	// Initialize local provider if configured
 	if am.config.Local != nil && am.config.Local.Enabled {
-		localProvider, err := NewLocalProvider(am.config.Local, am.tokenManager, am.logger)
+		localProvider, err := NewLocalProvider(am.config.Local, am.tokenManager, am.logger, am)
 		if err != nil {
 			am.logger.Error("Failed to initialize local provider", "error", err)
 			return err
@@ -136,7 +156,7 @@ func (am *AuthManager) initializeProviders() error {
 	}
 	// Initialize LDAP provider if configured
 	if am.config.LDAP != nil && am.config.LDAP.Enabled {
-		lp, err := NewLDAPProvider(am.config.LDAP, am.tokenManager, am.logger)
+		lp, err := NewLDAPProvider(am.config.LDAP, am.tokenManager, am.logger, am)
 		if err != nil {
 			am.logger.Error("Failed to initialize LDAP provider", "error", err)
 			return err
@@ -163,53 +183,33 @@ func (am *AuthManager) GetLDAPProvider() LDAPAuthProvider {
 
 // ValidateRequest validates authentication from HTTP request
 func (am *AuthManager) ValidateRequest(r *http.Request) (*TokenClaims, error) {
-	token := am.extractToken(r)
-	if token == "" {
-		return nil, ErrNoToken
+	token, err := am.extractToken(r)
+	if err != nil {
+		return nil, err
 	}
 
 	return am.tokenManager.ValidateToken(token)
 }
 
 // in AuthManager methods
-func (am *AuthManager) cookieName() string {
-	if am.config.SessionCookieName != "" {
-		return am.config.SessionCookieName
-	}
-	return defaultSessionCookieName
+func (am *AuthManager) GetCookieName() string {
+	return am.config.SessionCookieName
 }
 
 // extractToken extracts token from various sources (cookie, header, query param)
-func (am *AuthManager) extractToken(r *http.Request) string {
+func (am *AuthManager) extractToken(r *http.Request) (string, error) {
 	// Reuse the shared helper; it already handles cookie/header/param.
-	return ExtractTokenFromRequest(r, cookieName(am.config), am.config.AllowTokenParam)
+	return ExtractTokenFromRequest(r, am.config.SessionCookieName, am.config.AllowTokenParam)
 }
 
 // SetAuthCookie sets authentication cookie
 func (am *AuthManager) SetAuthCookie(w http.ResponseWriter, r *http.Request, token string) {
-	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName(am.config),
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(am.config.SessionTTL.Seconds()),
-	})
+	am.SetCookie(w, r, am.config.SessionCookieName, token, CookieSession, nil)
 }
 
 // ClearAuthCookie clears the authentication cookie
 func (am *AuthManager) ClearAuthCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     cookieName(am.config),
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1,
-	})
+	am.ClearCookie(w, am.config.SessionCookieName, CookieSession)
 }
 
 // IssueSession creates a new session for the user
@@ -287,7 +287,7 @@ func RequireAPIToken(cfg *AuthConfig, next http.Handler) http.Handler {
 		var tok string
 
 		// 1) Cookie session
-		if c, err := r.Cookie(cookieName(cfg)); err == nil && c.Value != "" {
+		if c, err := r.Cookie(cfg.SessionCookieName); err == nil && c.Value != "" {
 			tok = c.Value
 		}
 

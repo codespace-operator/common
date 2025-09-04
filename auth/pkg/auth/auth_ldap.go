@@ -66,7 +66,7 @@ func (c *realConn) Search(r *ldap.SearchRequest) (*ldap.SearchResult, error) {
 }
 func (c *realConn) Close() {
 	if err := c.Conn.Close(); err != nil {
-		c.Debug.Printf("LDAP connection close error: %v", err)
+		slog.Debug("LDAP connection close error", "error", err)
 	}
 }
 
@@ -76,7 +76,7 @@ type LDAPProvider struct {
 	dial func(url string, startTLS bool, insecure bool) (ldapConn, error)
 }
 
-func NewLDAPProvider(cfg *LDAPConfig, tm TokenManager, logger *slog.Logger) (*LDAPProvider, error) {
+func NewLDAPProvider(cfg *LDAPConfig, tm TokenManager, logger *slog.Logger, authManagerParent *AuthManager) (*LDAPProvider, error) {
 	if cfg == nil {
 		return nil, errors.New("nil LDAP config")
 	}
@@ -92,7 +92,7 @@ func NewLDAPProvider(cfg *LDAPConfig, tm TokenManager, logger *slog.Logger) (*LD
 	logger = logger.With("component", "ldap-auth")
 
 	lp := &LDAPProvider{
-		ProviderBase: NewProviderBase(tm, logger),
+		ProviderBase: NewProviderBase(tm, logger, authManagerParent),
 		cfg:          fillLDAPDefaults(cfg),
 		dial: func(u string, startTLS, insecure bool) (ldapConn, error) {
 			conn, err := ldap.DialURL(u)

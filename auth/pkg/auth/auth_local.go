@@ -152,7 +152,7 @@ func (lu *LocalUsers) Authenticate(username, password string) (*LocalUser, error
 }
 
 // NewLocalProvider creates a new local authentication provider
-func NewLocalProvider(config *LocalConfig, tokenManager TokenManager, logger *slog.Logger) (*LocalProvider, error) {
+func NewLocalProvider(config *LocalConfig, tokenManager TokenManager, logger *slog.Logger, authManagerParent *AuthManager) (*LocalProvider, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -170,7 +170,7 @@ func NewLocalProvider(config *LocalConfig, tokenManager TokenManager, logger *sl
 	}
 
 	return &LocalProvider{
-		ProviderBase:          NewProviderBase(tokenManager, logger),
+		ProviderBase:          NewProviderBase(tokenManager, logger, authManagerParent),
 		config:                config,
 		users:                 users,
 		bootstrapLoginAllowed: config.BootstrapLoginAllowed,
