@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/codespace-operator/common/compare/auth/v1.3.0...auth/v1.3.1) (2025-09-04)
+
+
+### Bug Fixes
+
+* **auth:** centralize token management to `AuthManager` ([5ebf685](https://github.com/codespace-operator/common/commit/5ebf685e7d47b67b927abafbd0bfdee9e907e2f1))
+
 # [1.3.0](https://github.com/codespace-operator/common/compare/auth/v1.2.0...auth/v1.3.0) (2025-09-04)
 
 
