@@ -1,3 +1,20 @@
+# [1.2.0](https://github.com/codespace-operator/common/compare/rbac/v1.1.0...rbac/v1.2.0) (2025-09-04)
+
+
+### Bug Fixes
+
+* **auth:** centralize token management to `AuthManager` ([5ebf685](https://github.com/codespace-operator/common/commit/5ebf685e7d47b67b927abafbd0bfdee9e907e2f1))
+* **auth:** enforce cfg paths as configured ([0f6aef7](https://github.com/codespace-operator/common/commit/0f6aef70968802c9f923662220f1e9d0d96deeba))
+* **common:** fix common pkg structure ([ecb7f31](https://github.com/codespace-operator/common/commit/ecb7f317bbe9def0503c8bc4a57f3e3449dc384c))
+
+
+### Features
+
+* **auth:** auth pkg bump due to immutability ([d160b68](https://github.com/codespace-operator/common/commit/d160b683b96901b8627d674b357e9ffb4fdced6d))
+* **auth:** auth pkg bump due to immutability ([02c7404](https://github.com/codespace-operator/common/commit/02c7404aefcb4eb108d14179b79e034d7553bc86))
+* **common:** init common pkg ([7c195f3](https://github.com/codespace-operator/common/commit/7c195f3028319980a331c33de243864a9617a288))
+* **rbac:** decouple from auth, use a `Principal` ([e481cdf](https://github.com/codespace-operator/common/commit/e481cdf9490f1526d88a6d2312eb53d936e10dd5))
+
 # [1.1.0](https://github.com/codespace-operator/common/compare/rbac/v1.0.0...rbac/v1.1.0) (2025-09-04)
 
 
