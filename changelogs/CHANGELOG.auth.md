@@ -1,3 +1,16 @@
+# [1.3.0](https://github.com/codespace-operator/common/compare/auth/v1.2.0...auth/v1.3.0) (2025-09-04)
+
+
+### Bug Fixes
+
+* **auth:** enforce cfg paths as configured ([0f6aef7](https://github.com/codespace-operator/common/commit/0f6aef70968802c9f923662220f1e9d0d96deeba))
+* **common:** fix common pkg structure ([ecb7f31](https://github.com/codespace-operator/common/commit/ecb7f317bbe9def0503c8bc4a57f3e3449dc384c))
+
+
+### Features
+
+* **common:** init common pkg ([7c195f3](https://github.com/codespace-operator/common/commit/7c195f3028319980a331c33de243864a9617a288))
+
 # [1.2.0](https://github.com/codespace-operator/common/compare/auth/v1.1.0...auth/v1.2.0) (2025-09-04)
 
 
