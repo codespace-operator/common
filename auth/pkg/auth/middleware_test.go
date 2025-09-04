@@ -34,6 +34,7 @@ func TestExtractTokenFromRequest_Order(t *testing.T) {
 	}
 }
 
+// Helper to create AuthManager for tests
 func newAuthManagerForTest(t *testing.T) *AuthManager {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
