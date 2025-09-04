@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/codespace-operator/common/compare/rbac/v1.0.0...rbac/v1.1.0) (2025-09-04)
+
+
+### Features
+
+* **rbac:** appName as constant for modelpath ([343d85a](https://github.com/codespace-operator/common/commit/343d85a5228ef17cd89c7d43e7e080651039e1d5))
+
 # 1.0.0 (2025-09-04)
 
 
