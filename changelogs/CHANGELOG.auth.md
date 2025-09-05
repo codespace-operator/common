@@ -1,3 +1,10 @@
+## [1.5.2](https://github.com/codespace-operator/common/compare/auth/v1.5.1...auth/v1.5.2) (2025-09-05)
+
+
+### Bug Fixes
+
+* **auth:** make AuthFileConfig public for typehints ([6427d20](https://github.com/codespace-operator/common/commit/6427d20b51d466e413347157b0ada5277c2f75dd))
+
 ## [1.5.1](https://github.com/codespace-operator/common/compare/auth/v1.5.0...auth/v1.5.1) (2025-09-05)
 
 
