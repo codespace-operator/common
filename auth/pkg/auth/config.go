@@ -81,15 +81,7 @@ func sameSiteFromString(s string) (mode http.SameSite) {
 }
 
 // LoadAuthConfigFromFile reads YAML and converts to AuthConfig
-func LoadAuthConfigFromFile(path string) (*AuthConfig, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read auth config: %w", err)
-	}
-	var fc authFileConfig
-	if err := yaml.Unmarshal(raw, &fc); err != nil {
-		return nil, fmt.Errorf("parse auth config: %w", err)
-	}
+func authConfigFromFileCfg(fc authFileConfig) (*AuthConfig, error) {
 
 	ac := &AuthConfig{
 		SessionCookieName: fc.Session.CookieName,
@@ -153,4 +145,21 @@ func LoadAuthConfigFromFile(path string) (*AuthConfig, error) {
 	}
 
 	return ac, nil
+}
+
+// Public helpers
+func LoadAuthConfigFromFile(path string) (*AuthConfig, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read auth file: %w", err)
+	}
+	return LoadAuthConfigFromYAML(b)
+}
+
+func LoadAuthConfigFromYAML(b []byte) (*AuthConfig, error) {
+	var fc authFileConfig
+	if err := yaml.Unmarshal(b, &fc); err != nil {
+		return nil, fmt.Errorf("parse auth yaml: %w", err)
+	}
+	return authConfigFromFileCfg(fc)
 }
