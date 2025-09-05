@@ -1,3 +1,11 @@
+# [1.4.0](https://github.com/codespace-operator/common/compare/auth/v1.3.1...auth/v1.4.0) (2025-09-05)
+
+
+### Features
+
+* **auth:** config loader for auths ([b8d0c55](https://github.com/codespace-operator/common/commit/b8d0c553845934d492f69c77810332d6d34c8036))
+* **rbac:** decouple from auth, use a `Principal` ([e481cdf](https://github.com/codespace-operator/common/commit/e481cdf9490f1526d88a6d2312eb53d936e10dd5))
+
 ## [1.3.1](https://github.com/codespace-operator/common/compare/auth/v1.3.0...auth/v1.3.1) (2025-09-04)
 
 
