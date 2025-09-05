@@ -23,6 +23,7 @@ const (
 )
 
 type OIDCConfig struct {
+	Enabled            bool
 	IssuerURL          string
 	ClientID           string
 	ClientSecret       string

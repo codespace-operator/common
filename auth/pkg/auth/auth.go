@@ -148,7 +148,7 @@ func (am *AuthManager) ListProviders() []string {
 // initializeProviders sets up authentication providers based on config
 func (am *AuthManager) initializeProviders() error {
 	// Initialize OIDC provider if configured
-	if am.config.OIDC != nil && am.config.OIDC.IssuerURL != "" {
+	if am.config.OIDC != nil && am.config.OIDC.IssuerURL != "" && am.config.OIDC.Enabled {
 		oidcProvider, err := NewOIDCProvider(am.config.OIDC, am.tokenManager, am.logger, am)
 		if err != nil {
 			am.logger.Error("Failed to initialize OIDC provider", "error", err)
