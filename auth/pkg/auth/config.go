@@ -81,12 +81,12 @@ func (ss SameSiteYAML) Mode() http.SameSite { return ss.mode }
 /* File config (YAML)            */
 /* ----------------------------- */
 
-type authFileConfig struct {
-	AuthPath       string `yaml:"auth_path"`
-	AuthLogoutPath string `yaml:"auth_logout_path"`
-
-	Session struct {
+type AuthFileConfig struct {
+	Manager struct {
 		// New/preferred
+		AuthPath       string `yaml:"auth_path"`
+		AuthLogoutPath string `yaml:"auth_logout_path"`
+
 		JWTSecret          string       `yaml:"jwt_secret"`
 		SessionCookieName  string       `yaml:"session_cookie_name"`
 		SessionTTL         DurationYAML `yaml:"session_ttl"`
@@ -155,17 +155,17 @@ type authFileConfig struct {
 /* Construction + validation     */
 /* ----------------------------- */
 
-func authConfigFromFileCfg(fc authFileConfig) (*AuthConfig, error) {
+func authConfigFromFileCfg(fc AuthFileConfig) (*AuthConfig, error) {
 	ac := &AuthConfig{
 		// Session basics — defaults applied below
-		SessionCookieName:  fc.Session.SessionCookieName,
-		SessionTTL:         fc.Session.SessionTTL.Duration(),
-		AllowTokenParam:    fc.Session.AllowTokenParam,
-		SameSiteMode:       fc.Session.SameSite.Mode(),
-		JWTSecret:          fc.Session.JWTSecret,
-		AbsoluteSessionMax: fc.Session.AbsoluteSessionMax.Duration(),
-		AuthPath:           strings.TrimRight(fc.AuthPath, "/"),
-		AuthLogoutPath:     strings.TrimRight(fc.AuthLogoutPath, "/"),
+		SessionCookieName:  fc.Manager.SessionCookieName,
+		SessionTTL:         fc.Manager.SessionTTL.Duration(),
+		AllowTokenParam:    fc.Manager.AllowTokenParam,
+		SameSiteMode:       fc.Manager.SameSite.Mode(),
+		JWTSecret:          fc.Manager.JWTSecret,
+		AbsoluteSessionMax: fc.Manager.AbsoluteSessionMax.Duration(),
+		AuthPath:           strings.TrimRight(fc.Manager.AuthPath, "/"),
+		AuthLogoutPath:     strings.TrimRight(fc.Manager.AuthLogoutPath, "/"),
 	}
 
 	// Minimal sane defaults
@@ -265,7 +265,7 @@ func LoadAuthConfigFromFile(path string) (*AuthConfig, error) {
 }
 
 func LoadAuthConfigFromYAML(b []byte) (*AuthConfig, error) {
-	var fc authFileConfig
+	var fc AuthFileConfig
 	if err := yaml.Unmarshal(b, &fc); err != nil {
 		return nil, fmt.Errorf("parse auth yaml: %w", err)
 	}
