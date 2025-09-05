@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/codespace-operator/common/compare/auth/v1.5.0...auth/v1.5.1) (2025-09-05)
+
+
+### Bug Fixes
+
+* **auth:** loader sanitize types ([3e835e5](https://github.com/codespace-operator/common/commit/3e835e5dc9f51afcdd5e55970bc4652f7c13f600))
+
 # [1.5.0](https://github.com/codespace-operator/common/compare/auth/v1.4.0...auth/v1.5.0) (2025-09-05)
 
 
