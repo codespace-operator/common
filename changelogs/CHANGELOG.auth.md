@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/codespace-operator/common/compare/auth/v1.4.0...auth/v1.5.0) (2025-09-05)
+
+
+### Features
+
+* **auth:** add public helpers ([3ddb4cd](https://github.com/codespace-operator/common/commit/3ddb4cda02553a8f15dede37c4dc84d29f4eaad8))
+
 # [1.4.0](https://github.com/codespace-operator/common/compare/auth/v1.3.1...auth/v1.4.0) (2025-09-05)
 
 
