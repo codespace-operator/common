@@ -4,17 +4,96 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
+/* ----------------------------- */
+/* YAML helper types (parsing)   */
+/* ----------------------------- */
+
+type DurationYAML struct {
+	d time.Duration
+}
+
+// Accept either string "1h30m", "3600s", "90m" or number (seconds)
+func (dy *DurationYAML) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.ScalarNode:
+		// try as string first
+		var s string
+		if err := value.Decode(&s); err == nil {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				dy.d = 0
+				return nil
+			}
+			parsed, err := time.ParseDuration(s)
+			if err != nil {
+				return fmt.Errorf("invalid duration %q: %w", s, err)
+			}
+			dy.d = parsed
+			return nil
+		}
+		// try as number (seconds)
+		var secs int64
+		if err := value.Decode(&secs); err == nil {
+			if secs < 0 {
+				return fmt.Errorf("duration seconds must be >= 0, got %d", secs)
+			}
+			dy.d = time.Duration(secs) * time.Second
+			return nil
+		}
+		return fmt.Errorf("duration must be string or number (seconds)")
+	default:
+		return fmt.Errorf("duration must be a scalar")
+	}
+}
+
+func (dy DurationYAML) Duration() time.Duration { return dy.d }
+
+type SameSiteYAML struct {
+	mode http.SameSite
+}
+
+func (ss *SameSiteYAML) UnmarshalYAML(value *yaml.Node) error {
+	var s string
+	if err := value.Decode(&s); err != nil {
+		return err
+	}
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "strict":
+		ss.mode = http.SameSiteStrictMode
+	case "none":
+		ss.mode = http.SameSiteNoneMode
+	case "lax", "":
+		ss.mode = http.SameSiteLaxMode
+	default:
+		return fmt.Errorf("same_site must be one of: Strict, Lax, None (got %q)", s)
+	}
+	return nil
+}
+func (ss SameSiteYAML) Mode() http.SameSite { return ss.mode }
+
+/* ----------------------------- */
+/* File config (YAML)            */
+/* ----------------------------- */
+
 type authFileConfig struct {
+	AuthPath       string `yaml:"auth_path"`
+	AuthLogoutPath string `yaml:"auth_logout_path"`
+
 	Session struct {
-		CookieName      string `yaml:"cookie_name"`
-		TTLMinutes      int    `yaml:"ttl_minutes"`
-		AllowTokenParam bool   `yaml:"allow_token_param"`
-		SameSite        string `yaml:"same_site"` // Strict|Lax|None
+		// New/preferred
+		JWTSecret          string       `yaml:"jwt_secret"`
+		SessionCookieName  string       `yaml:"session_cookie_name"`
+		SessionTTL         DurationYAML `yaml:"session_ttl"`
+		SameSite           SameSiteYAML `yaml:"same_site"`
+		AbsoluteSessionMax DurationYAML `yaml:"absolute_session_max"`
+
+		AllowTokenParam bool `yaml:"allow_token_param"`
 	} `yaml:"session"`
 
 	Providers struct {
@@ -45,7 +124,8 @@ type authFileConfig struct {
 			InsecureSkipVerify bool   `yaml:"insecure_skip_verify"`
 			BindDN             string `yaml:"bind_dn"`
 			BindPassword       string `yaml:"bind_password"`
-			User               struct {
+
+			User struct {
 				DNTemplate string `yaml:"dn_template"`
 				BaseDN     string `yaml:"base_dn"`
 				Filter     string `yaml:"filter"`
@@ -56,11 +136,13 @@ type authFileConfig struct {
 				} `yaml:"attrs"`
 				ToLowerUsername bool `yaml:"to_lower_username"`
 			} `yaml:"user"`
+
 			Group struct {
 				BaseDN string `yaml:"base_dn"`
 				Filter string `yaml:"filter"`
 				Attr   string `yaml:"attr"`
 			} `yaml:"group"`
+
 			Roles struct {
 				Mapping map[string][]string `yaml:"mapping"`
 				Default []string            `yaml:"default"`
@@ -69,29 +151,36 @@ type authFileConfig struct {
 	} `yaml:"providers"`
 }
 
-func sameSiteFromString(s string) (mode http.SameSite) {
-	switch s {
-	case "Strict", "strict":
-		return http.SameSiteStrictMode
-	case "None", "none":
-		return http.SameSiteNoneMode
-	default:
-		return http.SameSiteLaxMode
-	}
-}
+/* ----------------------------- */
+/* Construction + validation     */
+/* ----------------------------- */
 
-// LoadAuthConfigFromFile reads YAML and converts to AuthConfig
 func authConfigFromFileCfg(fc authFileConfig) (*AuthConfig, error) {
-
 	ac := &AuthConfig{
-		SessionCookieName: fc.Session.CookieName,
-		SessionTTL:        time.Duration(fc.Session.TTLMinutes) * time.Minute,
-		AllowTokenParam:   fc.Session.AllowTokenParam,
-		SameSiteMode:      sameSiteFromString(fc.Session.SameSite),
-
-		// providers filled below
+		// Session basics — defaults applied below
+		SessionCookieName:  fc.Session.SessionCookieName,
+		SessionTTL:         fc.Session.SessionTTL.Duration(),
+		AllowTokenParam:    fc.Session.AllowTokenParam,
+		SameSiteMode:       fc.Session.SameSite.Mode(),
+		JWTSecret:          fc.Session.JWTSecret,
+		AbsoluteSessionMax: fc.Session.AbsoluteSessionMax.Duration(),
+		AuthPath:           strings.TrimRight(fc.AuthPath, "/"),
+		AuthLogoutPath:     strings.TrimRight(fc.AuthLogoutPath, "/"),
 	}
 
+	// Minimal sane defaults
+	if ac.SessionCookieName == "" {
+		ac.SessionCookieName = defaultSessionCookieName
+	}
+	if ac.SessionTTL <= 0 {
+		ac.SessionTTL = 60 * time.Minute
+	}
+	if ac.SameSiteMode == 0 { // zero means not set; default to Lax
+		ac.SameSiteMode = http.SameSiteLaxMode
+	}
+	if ac.AbsoluteSessionMax == 0 {
+		ac.AbsoluteSessionMax = defaultAbsoluteSessionMax
+	}
 	// Local
 	if fc.Providers.Local.Enabled {
 		ac.Local = &LocalConfig{
@@ -105,6 +194,11 @@ func authConfigFromFileCfg(fc authFileConfig) (*AuthConfig, error) {
 
 	// OIDC
 	if fc.Providers.OIDC.Enabled {
+		if fc.Providers.OIDC.IssuerURL == "" || fc.Providers.OIDC.ClientID == "" ||
+			(fc.Providers.OIDC.ClientSecret == "" && fc.Providers.OIDC.Enabled) ||
+			fc.Providers.OIDC.RedirectURL == "" {
+			return nil, fmt.Errorf("oidc.enabled is true but required fields are missing (issuer_url, client_id, client_secret, redirect_url)")
+		}
 		ac.OIDC = &OIDCConfig{
 			Enabled:            true,
 			IssuerURL:          fc.Providers.OIDC.IssuerURL,
@@ -118,6 +212,17 @@ func authConfigFromFileCfg(fc authFileConfig) (*AuthConfig, error) {
 
 	// LDAP
 	if fc.Providers.LDAP.Enabled {
+		if fc.Providers.LDAP.URL == "" {
+			return nil, fmt.Errorf("ldap.enabled is true but url is empty")
+		}
+		// Either BindDN+BindPassword (search bind), or direct bind via DN template.
+		if fc.Providers.LDAP.BindDN == "" && fc.Providers.LDAP.User.DNTemplate == "" {
+			return nil, fmt.Errorf("ldap: either bind_dn (+ bind_password) or user.dn_template must be provided")
+		}
+		if fc.Providers.LDAP.BindDN != "" && fc.Providers.LDAP.BindPassword == "" {
+			return nil, fmt.Errorf("ldap: bind_dn provided but bind_password is empty")
+		}
+
 		ac.LDAP = &LDAPConfig{
 			Enabled:            true,
 			URL:                fc.Providers.LDAP.URL,
@@ -127,27 +232,30 @@ func authConfigFromFileCfg(fc authFileConfig) (*AuthConfig, error) {
 			BindDN:       fc.Providers.LDAP.BindDN,
 			BindPassword: fc.Providers.LDAP.BindPassword,
 
-			UserBaseDN:      fc.Providers.LDAP.User.BaseDN,
-			UserFilter:      fc.Providers.LDAP.User.Filter,
 			UserDNTemplate:  fc.Providers.LDAP.User.DNTemplate,
+			UserBaseDN:      fc.Providers.LDAP.User.BaseDN,
+			UserFilter:      strings.TrimSpace(fc.Providers.LDAP.User.Filter),
 			UsernameAttr:    fc.Providers.LDAP.User.Attrs.Username,
 			EmailAttr:       fc.Providers.LDAP.User.Attrs.Email,
 			DisplayNameAttr: fc.Providers.LDAP.User.Attrs.DisplayName,
+			ToLowerUsername: fc.Providers.LDAP.User.ToLowerUsername,
 
-			GroupBaseDN:  fc.Providers.LDAP.Group.BaseDN,
-			GroupFilter:  fc.Providers.LDAP.Group.Filter,
-			GroupAttr:    fc.Providers.LDAP.Group.Attr,
+			GroupBaseDN: fc.Providers.LDAP.Group.BaseDN,
+			GroupFilter: strings.TrimSpace(fc.Providers.LDAP.Group.Filter),
+			GroupAttr:   fc.Providers.LDAP.Group.Attr,
+
 			RoleMapping:  fc.Providers.LDAP.Roles.Mapping,
 			DefaultRoles: fc.Providers.LDAP.Roles.Default,
-
-			ToLowerUsername: fc.Providers.LDAP.User.ToLowerUsername,
 		}
 	}
 
 	return ac, nil
 }
 
-// Public helpers
+/* ----------------------------- */
+/* Public helpers                */
+/* ----------------------------- */
+
 func LoadAuthConfigFromFile(path string) (*AuthConfig, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {

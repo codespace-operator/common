@@ -18,8 +18,9 @@ var (
 )
 
 const (
-	defaultSessionCookieName = "you_should_change_me"
-	defaultSameSiteMode      = http.SameSiteStrictMode
+	defaultSessionCookieName  = "you_should_change_me"
+	defaultSameSiteMode       = http.SameSiteStrictMode
+	defaultAbsoluteSessionMax = 24 * time.Hour
 )
 
 type Manager interface {
@@ -94,7 +95,7 @@ func NewAuthManager(cfg *AuthConfig, logger *slog.Logger) (*AuthManager, error) 
 		cfg.AuthLogoutPath = "/auth/logout"
 	}
 	if cfg.AbsoluteSessionMax == 0 {
-		cfg.AbsoluteSessionMax = 24 * time.Hour
+		cfg.AbsoluteSessionMax = defaultAbsoluteSessionMax
 	}
 
 	tm, err := NewJWTManager(cfg.JWTSecret, logger)
