@@ -81,6 +81,13 @@ func (ss SameSiteYAML) Mode() http.SameSite { return ss.mode }
 /* File config (YAML)            */
 /* ----------------------------- */
 
+/*
+   YAML structure for auth config file
+   We define it to keep a layer off the internals of the package in the development phase, as a form of contract
+   and to allow for quicker development changes within the internals without breaking clients
+
+*/
+
 type AuthFileConfig struct {
 	Manager struct {
 		// New/preferred
@@ -270,4 +277,17 @@ func LoadAuthConfigFromYAML(b []byte) (*AuthConfig, error) {
 		return nil, fmt.Errorf("parse auth yaml: %w", err)
 	}
 	return authConfigFromFileCfg(fc)
+}
+
+// FromFileConfig converts an AuthFileConfig (YAML shape) into a runtime AuthConfig.
+func FromFileConfig(fc AuthFileConfig) (*AuthConfig, error) {
+	return authConfigFromFileCfg(fc)
+}
+
+func ParseFileConfigYAML(b []byte) (AuthFileConfig, error) {
+	var fc AuthFileConfig
+	if err := yaml.Unmarshal(b, &fc); err != nil {
+		return AuthFileConfig{}, err
+	}
+	return fc, nil
 }
