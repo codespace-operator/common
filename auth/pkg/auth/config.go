@@ -101,7 +101,7 @@ type AuthFileConfig struct {
 		AbsoluteSessionMax DurationYAML `yaml:"absolute_session_max"`
 
 		AllowTokenParam bool `yaml:"allow_token_param"`
-	} `yaml:"session"`
+	} `yaml:"manager"`
 
 	Providers struct {
 		Local struct {
