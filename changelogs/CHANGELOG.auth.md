@@ -1,3 +1,11 @@
+## [1.5.3](https://github.com/codespace-operator/common/compare/auth/v1.5.2...auth/v1.5.3) (2025-09-05)
+
+
+### Bug Fixes
+
+* **auth:** add missing adapters ([bf9f4bd](https://github.com/codespace-operator/common/commit/bf9f4bdf4d3a3e45d7376f81bcedd86bb15c89f1))
+* **auth:** session is manager ([c4e8a88](https://github.com/codespace-operator/common/commit/c4e8a88d4a64f6f7f7a2fe733487c82668280b1f))
+
 ## [1.5.2](https://github.com/codespace-operator/common/compare/auth/v1.5.1...auth/v1.5.2) (2025-09-05)
 
 
