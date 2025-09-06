@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 
@@ -14,75 +15,78 @@ import (
 /* Simplified config (standard types) */
 /* ----------------------------- */
 
+// Updated AuthFileConfig with both yaml and mapstructure tags
 type AuthFileConfig struct {
 	Manager struct {
-		AuthPath       string `yaml:"auth_path"`
-		AuthLogoutPath string `yaml:"auth_logout_path"`
+		AuthPath       string `yaml:"auth_path" mapstructure:"auth_path"`
+		AuthLogoutPath string `yaml:"auth_logout_path" mapstructure:"auth_logout_path"`
 
-		JWTSecret         string `yaml:"jwt_secret"`
-		SessionCookieName string `yaml:"session_cookie_name"`
+		JWTSecret         string `yaml:"jwt_secret" mapstructure:"jwt_secret"`
+		SessionCookieName string `yaml:"session_cookie_name" mapstructure:"session_cookie_name"`
 
-		SessionTTL         string `yaml:"session_ttl"`
-		AbsoluteSessionMax string `yaml:"absolute_session_max"`
+		// Use string for duration - parse it in the conversion function
+		SessionTTL         string `yaml:"session_ttl" mapstructure:"session_ttl"`
+		AbsoluteSessionMax string `yaml:"absolute_session_max" mapstructure:"absolute_session_max"`
 
-		SameSite string `yaml:"same_site"`
+		// Use string for SameSite - parse it in the conversion function
+		SameSite string `yaml:"same_site" mapstructure:"same_site"`
 
-		AllowTokenParam bool `yaml:"allow_token_param"`
-	} `yaml:"manager"`
+		AllowTokenParam bool `yaml:"allow_token_param" mapstructure:"allow_token_param"`
+	} `yaml:"manager" mapstructure:"manager"`
 
 	Providers struct {
 		Local struct {
-			Enabled   bool   `yaml:"enabled"`
-			UsersPath string `yaml:"users_path"`
+			Enabled   bool   `yaml:"enabled" mapstructure:"enabled"`
+			UsersPath string `yaml:"users_path" mapstructure:"users_path"`
 			Bootstrap struct {
-				Allowed  bool   `yaml:"allowed"`
-				User     string `yaml:"user"`
-				Password string `yaml:"password"`
-			} `yaml:"bootstrap"`
-		} `yaml:"local"`
+				Allowed  bool   `yaml:"allowed" mapstructure:"allowed"`
+				User     string `yaml:"user" mapstructure:"user"`
+				Password string `yaml:"password" mapstructure:"password"`
+			} `yaml:"bootstrap" mapstructure:"bootstrap"`
+		} `yaml:"local" mapstructure:"local"`
 
 		OIDC struct {
-			Enabled            bool     `yaml:"enabled"`
-			IssuerURL          string   `yaml:"issuer_url"`
-			ClientID           string   `yaml:"client_id"`
-			ClientSecret       string   `yaml:"client_secret"`
-			RedirectURL        string   `yaml:"redirect_url"`
-			Scopes             []string `yaml:"scopes"`
-			InsecureSkipVerify bool     `yaml:"insecure_skip_verify"`
-		} `yaml:"oidc"`
+			Enabled            bool     `yaml:"enabled" mapstructure:"enabled"`
+			IssuerURL          string   `yaml:"issuer_url" mapstructure:"issuer_url"`
+			ClientID           string   `yaml:"client_id" mapstructure:"client_id"`
+			ClientSecret       string   `yaml:"client_secret" mapstructure:"client_secret"`
+			RedirectURL        string   `yaml:"redirect_url" mapstructure:"redirect_url"`
+			Scopes             []string `yaml:"scopes" mapstructure:"scopes"`
+			InsecureSkipVerify bool     `yaml:"insecure_skip_verify" mapstructure:"insecure_skip_verify"`
+		} `yaml:"oidc" mapstructure:"oidc"`
 
 		LDAP struct {
-			Enabled            bool   `yaml:"enabled"`
-			URL                string `yaml:"url"`
-			StartTLS           bool   `yaml:"start_tls"`
-			InsecureSkipVerify bool   `yaml:"insecure_skip_verify"`
-			BindDN             string `yaml:"bind_dn"`
-			BindPassword       string `yaml:"bind_password"`
+			Enabled            bool   `yaml:"enabled" mapstructure:"enabled"`
+			URL                string `yaml:"url" mapstructure:"url"`
+			StartTLS           bool   `yaml:"start_tls" mapstructure:"start_tls"`
+			InsecureSkipVerify bool   `yaml:"insecure_skip_verify" mapstructure:"insecure_skip_verify"`
+			BindDN             string `yaml:"bind_dn" mapstructure:"bind_dn"`
+			BindPassword       string `yaml:"bind_password" mapstructure:"bind_password"`
 
 			User struct {
-				DNTemplate string `yaml:"dn_template"`
-				BaseDN     string `yaml:"base_dn"`
-				Filter     string `yaml:"filter"`
+				DNTemplate string `yaml:"dn_template" mapstructure:"dn_template"`
+				BaseDN     string `yaml:"base_dn" mapstructure:"base_dn"`
+				Filter     string `yaml:"filter" mapstructure:"filter"`
 				Attrs      struct {
-					Username    string `yaml:"username"`
-					Email       string `yaml:"email"`
-					DisplayName string `yaml:"display_name"`
-				} `yaml:"attrs"`
-				ToLowerUsername bool `yaml:"to_lower_username"`
-			} `yaml:"user"`
+					Username    string `yaml:"username" mapstructure:"username"`
+					Email       string `yaml:"email" mapstructure:"email"`
+					DisplayName string `yaml:"display_name" mapstructure:"display_name"`
+				} `yaml:"attrs" mapstructure:"attrs"`
+				ToLowerUsername bool `yaml:"to_lower_username" mapstructure:"to_lower_username"`
+			} `yaml:"user" mapstructure:"user"`
 
 			Group struct {
-				BaseDN string `yaml:"base_dn"`
-				Filter string `yaml:"filter"`
-				Attr   string `yaml:"attr"`
-			} `yaml:"group"`
+				BaseDN string `yaml:"base_dn" mapstructure:"base_dn"`
+				Filter string `yaml:"filter" mapstructure:"filter"`
+				Attr   string `yaml:"attr" mapstructure:"attr"`
+			} `yaml:"group" mapstructure:"group"`
 
 			Roles struct {
-				Mapping map[string][]string `yaml:"mapping"`
-				Default []string            `yaml:"default"`
-			} `yaml:"roles"`
-		} `yaml:"ldap"`
-	} `yaml:"providers"`
+				Mapping map[string][]string `yaml:"mapping" mapstructure:"mapping"`
+				Default []string            `yaml:"default" mapstructure:"default"`
+			} `yaml:"roles" mapstructure:"roles"`
+		} `yaml:"ldap" mapstructure:"ldap"`
+	} `yaml:"providers" mapstructure:"providers"`
 }
 
 /* ----------------------------- */
@@ -271,4 +275,12 @@ func ParseFileConfigYAML(b []byte) (AuthFileConfig, error) {
 		return AuthFileConfig{}, err
 	}
 	return fc, nil
+}
+
+func LoadAuthConfigFromViper(v *viper.Viper) (*AuthConfig, error) {
+	var fc AuthFileConfig
+	if err := v.Unmarshal(&fc); err != nil {
+		return nil, fmt.Errorf("unmarshal auth config: %w", err)
+	}
+	return authConfigFromFileCfg(fc)
 }
