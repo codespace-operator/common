@@ -284,3 +284,97 @@ func LoadAuthConfigFromViper(v *viper.Viper) (*AuthConfig, error) {
 	}
 	return authConfigFromFileCfg(fc)
 }
+
+// SetupAuthViper creates a viper instance configured for auth environment variables
+func SetupAuthViper(envPrefix string) *viper.Viper {
+	v := viper.New()
+
+	// Set up environment variables
+	v.SetEnvPrefix(envPrefix)
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	v.AutomaticEnv()
+
+	// Bind all auth configuration paths
+	BindAuthEnvVars(v)
+
+	return v
+}
+
+// BindAuthEnvVars binds all AuthFileConfig paths to environment variables
+func BindAuthEnvVars(v *viper.Viper) {
+	// Manager section
+	v.BindEnv("manager.auth_path")
+	v.BindEnv("manager.auth_logout_path")
+	v.BindEnv("manager.jwt_secret")
+	v.BindEnv("manager.session_cookie_name")
+	v.BindEnv("manager.session_ttl")
+	v.BindEnv("manager.same_site")
+	v.BindEnv("manager.absolute_session_max")
+	v.BindEnv("manager.allow_token_param")
+
+	// Local provider
+	v.BindEnv("providers.local.enabled")
+	v.BindEnv("providers.local.users_path")
+	v.BindEnv("providers.local.bootstrap.allowed")
+	v.BindEnv("providers.local.bootstrap.user")
+	v.BindEnv("providers.local.bootstrap.password")
+
+	// OIDC provider
+	v.BindEnv("providers.oidc.enabled")
+	v.BindEnv("providers.oidc.issuer_url")
+	v.BindEnv("providers.oidc.client_id")
+	v.BindEnv("providers.oidc.client_secret")
+	v.BindEnv("providers.oidc.redirect_url")
+	v.BindEnv("providers.oidc.scopes")
+	v.BindEnv("providers.oidc.insecure_skip_verify")
+
+	// LDAP provider
+	v.BindEnv("providers.ldap.enabled")
+	v.BindEnv("providers.ldap.url")
+	v.BindEnv("providers.ldap.start_tls")
+	v.BindEnv("providers.ldap.insecure_skip_verify")
+	v.BindEnv("providers.ldap.bind_dn")
+	v.BindEnv("providers.ldap.bind_password")
+
+	// LDAP user settings
+	v.BindEnv("providers.ldap.user.dn_template")
+	v.BindEnv("providers.ldap.user.base_dn")
+	v.BindEnv("providers.ldap.user.filter")
+	v.BindEnv("providers.ldap.user.attrs.username")
+	v.BindEnv("providers.ldap.user.attrs.email")
+	v.BindEnv("providers.ldap.user.attrs.display_name")
+	v.BindEnv("providers.ldap.user.to_lower_username")
+
+	// LDAP group settings
+	v.BindEnv("providers.ldap.group.base_dn")
+	v.BindEnv("providers.ldap.group.filter")
+	v.BindEnv("providers.ldap.group.attr")
+
+	// LDAP roles
+	v.BindEnv("providers.ldap.roles.mapping")
+	v.BindEnv("providers.ldap.roles.default")
+}
+
+// LoadAuthConfigWithEnv loads auth config from file and environment variables
+// This is a convenience function that combines file loading with environment overrides
+func LoadAuthConfigWithEnv(envPrefix, configPath string) (*AuthConfig, error) {
+	v := SetupAuthViper(envPrefix)
+
+	// Load config file if specified and exists
+	if configPath != "" {
+		if _, err := os.Stat(configPath); err == nil {
+			v.SetConfigFile(configPath)
+			if err := v.ReadInConfig(); err != nil {
+				return nil, fmt.Errorf("read auth config file %s: %w", configPath, err)
+			}
+		}
+	}
+
+	return LoadAuthConfigFromViper(v)
+}
+
+// LoadAuthConfigFromEnvOnly loads auth config only from environment variables
+func LoadAuthConfigFromEnvOnly(envPrefix string) (*AuthConfig, error) {
+	v := SetupAuthViper(envPrefix)
+	return LoadAuthConfigFromViper(v)
+}
