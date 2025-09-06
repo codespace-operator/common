@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/codespace-operator/common/compare/auth/v1.5.5...auth/v1.6.0) (2025-09-06)
+
+
+### Features
+
+* **auth:** env bindings directly ([78b127f](https://github.com/codespace-operator/common/commit/78b127f050d6ce843bb1e9e538865c8838ee7474))
+
 ## [1.5.5](https://github.com/codespace-operator/common/compare/auth/v1.5.4...auth/v1.5.5) (2025-09-06)
 
 
