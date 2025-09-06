@@ -1,3 +1,10 @@
+## [1.5.4](https://github.com/codespace-operator/common/compare/auth/v1.5.3...auth/v1.5.4) (2025-09-06)
+
+
+### Bug Fixes
+
+* **auth:** external functions stay standard ([8e8ceb5](https://github.com/codespace-operator/common/commit/8e8ceb5446cb6a443c0c30f6c2753812f67737be))
+
 ## [1.5.3](https://github.com/codespace-operator/common/compare/auth/v1.5.2...auth/v1.5.3) (2025-09-05)
 
 
