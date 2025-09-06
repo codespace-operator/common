@@ -1,3 +1,10 @@
+## [1.5.5](https://github.com/codespace-operator/common/compare/auth/v1.5.4...auth/v1.5.5) (2025-09-06)
+
+
+### Bug Fixes
+
+* **auth:** config missing tags for unmarshaling ([47e1425](https://github.com/codespace-operator/common/commit/47e14254af636b82437ca2e8cb027b19c2671013))
+
 ## [1.5.4](https://github.com/codespace-operator/common/compare/auth/v1.5.3...auth/v1.5.4) (2025-09-06)
 
 
