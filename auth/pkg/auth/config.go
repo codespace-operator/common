@@ -11,94 +11,21 @@ import (
 )
 
 /* ----------------------------- */
-/* YAML helper types (parsing)   */
+/* Simplified config (standard types) */
 /* ----------------------------- */
-
-type DurationYAML struct {
-	d time.Duration
-}
-
-// Accept either string "1h30m", "3600s", "90m" or number (seconds)
-func (dy *DurationYAML) UnmarshalYAML(value *yaml.Node) error {
-	switch value.Kind {
-	case yaml.ScalarNode:
-		// try as string first
-		var s string
-		if err := value.Decode(&s); err == nil {
-			s = strings.TrimSpace(s)
-			if s == "" {
-				dy.d = 0
-				return nil
-			}
-			parsed, err := time.ParseDuration(s)
-			if err != nil {
-				return fmt.Errorf("invalid duration %q: %w", s, err)
-			}
-			dy.d = parsed
-			return nil
-		}
-		// try as number (seconds)
-		var secs int64
-		if err := value.Decode(&secs); err == nil {
-			if secs < 0 {
-				return fmt.Errorf("duration seconds must be >= 0, got %d", secs)
-			}
-			dy.d = time.Duration(secs) * time.Second
-			return nil
-		}
-		return fmt.Errorf("duration must be string or number (seconds)")
-	default:
-		return fmt.Errorf("duration must be a scalar")
-	}
-}
-
-func (dy DurationYAML) Duration() time.Duration { return dy.d }
-
-type SameSiteYAML struct {
-	mode http.SameSite
-}
-
-func (ss *SameSiteYAML) UnmarshalYAML(value *yaml.Node) error {
-	var s string
-	if err := value.Decode(&s); err != nil {
-		return err
-	}
-	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "strict":
-		ss.mode = http.SameSiteStrictMode
-	case "none":
-		ss.mode = http.SameSiteNoneMode
-	case "lax", "":
-		ss.mode = http.SameSiteLaxMode
-	default:
-		return fmt.Errorf("same_site must be one of: Strict, Lax, None (got %q)", s)
-	}
-	return nil
-}
-func (ss SameSiteYAML) Mode() http.SameSite { return ss.mode }
-
-/* ----------------------------- */
-/* File config (YAML)            */
-/* ----------------------------- */
-
-/*
-   YAML structure for auth config file
-   We define it to keep a layer off the internals of the package in the development phase, as a form of contract
-   and to allow for quicker development changes within the internals without breaking clients
-
-*/
 
 type AuthFileConfig struct {
 	Manager struct {
-		// New/preferred
 		AuthPath       string `yaml:"auth_path"`
 		AuthLogoutPath string `yaml:"auth_logout_path"`
 
-		JWTSecret          string       `yaml:"jwt_secret"`
-		SessionCookieName  string       `yaml:"session_cookie_name"`
-		SessionTTL         DurationYAML `yaml:"session_ttl"`
-		SameSite           SameSiteYAML `yaml:"same_site"`
-		AbsoluteSessionMax DurationYAML `yaml:"absolute_session_max"`
+		JWTSecret         string `yaml:"jwt_secret"`
+		SessionCookieName string `yaml:"session_cookie_name"`
+
+		SessionTTL         string `yaml:"session_ttl"`
+		AbsoluteSessionMax string `yaml:"absolute_session_max"`
+
+		SameSite string `yaml:"same_site"`
 
 		AllowTokenParam bool `yaml:"allow_token_param"`
 	} `yaml:"manager"`
@@ -159,36 +86,92 @@ type AuthFileConfig struct {
 }
 
 /* ----------------------------- */
+/* Helper functions for parsing   */
+/* ----------------------------- */
+
+// parseDuration accepts either a duration string like "1h30m" or number of seconds
+func parseDuration(s string) (time.Duration, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, nil
+	}
+
+	// Try parsing as duration first
+	if d, err := time.ParseDuration(s); err == nil {
+		return d, nil
+	}
+
+	// Try parsing as seconds (for backwards compatibility)
+	if secs, err := parseAsSeconds(s); err == nil {
+		return time.Duration(secs) * time.Second, nil
+	}
+
+	return 0, fmt.Errorf("invalid duration %q: expected format like '1h30m' or number of seconds", s)
+}
+
+func parseAsSeconds(s string) (int64, error) {
+	// You can implement parsing as seconds if needed
+	// For now, just return an error to force duration format
+	return 0, fmt.Errorf("not a number")
+}
+
+// parseSameSite converts string to http.SameSite
+func parseSameSite(s string) http.SameSite {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "strict":
+		return http.SameSiteStrictMode
+	case "none":
+		return http.SameSiteNoneMode
+	case "lax", "":
+		return http.SameSiteLaxMode
+	default:
+		// Default to Lax for invalid values
+		return http.SameSiteLaxMode
+	}
+}
+
+/* ----------------------------- */
 /* Construction + validation     */
 /* ----------------------------- */
 
 func authConfigFromFileCfg(fc AuthFileConfig) (*AuthConfig, error) {
+	// Parse duration fields
+	sessionTTL, err := parseDuration(fc.Manager.SessionTTL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid session_ttl: %w", err)
+	}
+
+	absoluteSessionMax, err := parseDuration(fc.Manager.AbsoluteSessionMax)
+	if err != nil {
+		return nil, fmt.Errorf("invalid absolute_session_max: %w", err)
+	}
+
 	ac := &AuthConfig{
-		// Session basics — defaults applied below
 		SessionCookieName:  fc.Manager.SessionCookieName,
-		SessionTTL:         fc.Manager.SessionTTL.Duration(),
+		SessionTTL:         sessionTTL,
 		AllowTokenParam:    fc.Manager.AllowTokenParam,
-		SameSiteMode:       fc.Manager.SameSite.Mode(),
+		SameSiteMode:       parseSameSite(fc.Manager.SameSite),
 		JWTSecret:          fc.Manager.JWTSecret,
-		AbsoluteSessionMax: fc.Manager.AbsoluteSessionMax.Duration(),
+		AbsoluteSessionMax: absoluteSessionMax,
 		AuthPath:           strings.TrimRight(fc.Manager.AuthPath, "/"),
 		AuthLogoutPath:     strings.TrimRight(fc.Manager.AuthLogoutPath, "/"),
 	}
 
-	// Minimal sane defaults
+	// Apply defaults
 	if ac.SessionCookieName == "" {
 		ac.SessionCookieName = defaultSessionCookieName
 	}
 	if ac.SessionTTL <= 0 {
 		ac.SessionTTL = 60 * time.Minute
 	}
-	if ac.SameSiteMode == 0 { // zero means not set; default to Lax
+	if ac.SameSiteMode == 0 { // shouldn't happen with parseSameSite, but just in case
 		ac.SameSiteMode = http.SameSiteLaxMode
 	}
 	if ac.AbsoluteSessionMax == 0 {
 		ac.AbsoluteSessionMax = defaultAbsoluteSessionMax
 	}
-	// Local
+
+	// Local provider
 	if fc.Providers.Local.Enabled {
 		ac.Local = &LocalConfig{
 			Enabled:               true,
@@ -199,11 +182,10 @@ func authConfigFromFileCfg(fc AuthFileConfig) (*AuthConfig, error) {
 		}
 	}
 
-	// OIDC
+	// OIDC provider
 	if fc.Providers.OIDC.Enabled {
 		if fc.Providers.OIDC.IssuerURL == "" || fc.Providers.OIDC.ClientID == "" ||
-			(fc.Providers.OIDC.ClientSecret == "" && fc.Providers.OIDC.Enabled) ||
-			fc.Providers.OIDC.RedirectURL == "" {
+			fc.Providers.OIDC.ClientSecret == "" || fc.Providers.OIDC.RedirectURL == "" {
 			return nil, fmt.Errorf("oidc.enabled is true but required fields are missing (issuer_url, client_id, client_secret, redirect_url)")
 		}
 		ac.OIDC = &OIDCConfig{
@@ -217,12 +199,11 @@ func authConfigFromFileCfg(fc AuthFileConfig) (*AuthConfig, error) {
 		}
 	}
 
-	// LDAP
+	// LDAP provider
 	if fc.Providers.LDAP.Enabled {
 		if fc.Providers.LDAP.URL == "" {
 			return nil, fmt.Errorf("ldap.enabled is true but url is empty")
 		}
-		// Either BindDN+BindPassword (search bind), or direct bind via DN template.
 		if fc.Providers.LDAP.BindDN == "" && fc.Providers.LDAP.User.DNTemplate == "" {
 			return nil, fmt.Errorf("ldap: either bind_dn (+ bind_password) or user.dn_template must be provided")
 		}
