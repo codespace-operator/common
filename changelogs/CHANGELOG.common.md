@@ -1,3 +1,26 @@
+# [1.1.0](https://github.com/codespace-operator/common/compare/common/v1.0.1...common/v1.1.0) (2025-09-07)
+
+
+### Bug Fixes
+
+* **auth:** add missing adapters ([bf9f4bd](https://github.com/codespace-operator/common/commit/bf9f4bdf4d3a3e45d7376f81bcedd86bb15c89f1))
+* **auth:** centralize token management to `AuthManager` ([5ebf685](https://github.com/codespace-operator/common/commit/5ebf685e7d47b67b927abafbd0bfdee9e907e2f1))
+* **auth:** config missing tags for unmarshaling ([47e1425](https://github.com/codespace-operator/common/commit/47e14254af636b82437ca2e8cb027b19c2671013))
+* **auth:** enforce cfg paths as configured ([0f6aef7](https://github.com/codespace-operator/common/commit/0f6aef70968802c9f923662220f1e9d0d96deeba))
+* **auth:** external functions stay standard ([8e8ceb5](https://github.com/codespace-operator/common/commit/8e8ceb5446cb6a443c0c30f6c2753812f67737be))
+* **auth:** loader sanitize types ([3e835e5](https://github.com/codespace-operator/common/commit/3e835e5dc9f51afcdd5e55970bc4652f7c13f600))
+* **auth:** make AuthFileConfig public for typehints ([6427d20](https://github.com/codespace-operator/common/commit/6427d20b51d466e413347157b0ada5277c2f75dd))
+* **auth:** session is manager ([c4e8a88](https://github.com/codespace-operator/common/commit/c4e8a88d4a64f6f7f7a2fe733487c82668280b1f))
+* **common:** remove unnecessary logging ([1c20340](https://github.com/codespace-operator/common/commit/1c20340032fb47ab135a5866e31bfe217bcb02bf))
+
+
+### Features
+
+* **auth:** add public helpers ([3ddb4cd](https://github.com/codespace-operator/common/commit/3ddb4cda02553a8f15dede37c4dc84d29f4eaad8))
+* **auth:** config loader for auths ([b8d0c55](https://github.com/codespace-operator/common/commit/b8d0c553845934d492f69c77810332d6d34c8036))
+* **auth:** env bindings directly ([78b127f](https://github.com/codespace-operator/common/commit/78b127f050d6ce843bb1e9e538865c8838ee7474))
+* **rbac:** decouple from auth, use a `Principal` ([e481cdf](https://github.com/codespace-operator/common/commit/e481cdf9490f1526d88a6d2312eb53d936e10dd5))
+
 ## [1.0.1](https://github.com/codespace-operator/common/compare/common/v1.0.0...common/v1.0.1) (2025-09-04)
 
 
