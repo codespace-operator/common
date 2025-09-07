@@ -89,12 +89,6 @@ func SetupViper(v *viper.Viper, envPrefix, fileBase string) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	v.AutomaticEnv()
 
-	// Logging helper (default logger only after logger is setup)
-	now := func() string { return time.Now().Format(time.RFC3339) }
-	log := func(f string, a ...any) {
-		fmt.Fprintf(os.Stderr, now()+" "+f+"\n", a...)
-	}
-
 	// --- Single knob: <PREFIX>_CONFIG_DEFAULT_PATH (file OR directory) ---
 	var dirOverride string
 	if raw := strings.TrimSpace(os.Getenv(envPrefix + "_CONFIG_DEFAULT_PATH")); raw != "" {
@@ -117,7 +111,6 @@ func SetupViper(v *viper.Viper, envPrefix, fileBase string) {
 			if err := v.ReadInConfig(); err != nil {
 				panic(fmt.Errorf("failed to read %s_CONFIG_DEFAULT_PATH=%s: %w", envPrefix, p, err))
 			}
-			log("loaded config override (file): %s", v.ConfigFileUsed())
 			return
 		}
 	}
@@ -135,13 +128,6 @@ func SetupViper(v *viper.Viper, envPrefix, fileBase string) {
 	v.AddConfigPath(".")
 	v.AddConfigPath("/etc/codespace-operator/")
 	v.AddConfigPath("$HOME/.codespace-operator/")
-
-	// Optional file - ignore if missing
-	if err := v.ReadInConfig(); err == nil {
-		log("loaded config (search): %s", v.ConfigFileUsed())
-	} else {
-		log("no config file found via search (env-only is fine)")
-	}
 }
 
 func SplitCSV(s string) []string {
